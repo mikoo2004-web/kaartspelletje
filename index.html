@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Turn-Based Kaartbordspel</title>
+    <link rel="stylesheet" href="src/styles.css?v=range-manhattan-1" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Hot-seat battle</p>
+          <h1>Kaartbordspel</h1>
+          <nav class="view-tabs" aria-label="Hoofdnavigatie">
+            <button class="view-tab active" data-view="game" type="button">Spelen</button>
+            <button class="view-tab" data-view="rules" type="button">Uitleg</button>
+            <button class="view-tab" data-view="cards" type="button">Alle kaarten</button>
+            <button class="view-tab" data-view="keywords" type="button">Keywords</button>
+          </nav>
+        </div>
+        <section class="stats-bar" id="statsBar"></section>
+      </header>
+
+      <section id="gameView" class="app-view active">
+      <section class="game-layout">
+        <section class="board-wrap">
+          <div class="board-tools">
+            <div id="selectionInfo" class="selection-info">Kies een kaart of unit.</div>
+            <button id="newGameBtn" class="ghost-button" type="button">Nieuw spel</button>
+          </div>
+          <div class="territory-legend">
+            <span><b class="legend-p1"></b>Gebied speler 1</span>
+            <span><b class="legend-p2"></b>Gebied speler 2</span>
+            <span><b class="legend-protected-p1"></b>Beschermd P1</span>
+            <span><b class="legend-protected-p2"></b>Beschermd P2</span>
+          </div>
+          <div id="baseStatusP2" class="base-status p2" aria-label="Base status speler 2"></div>
+          <div id="board" class="board" aria-label="9 bij 9 speelbord"></div>
+          <div id="baseStatusP1" class="base-status p1" aria-label="Base status speler 1"></div>
+          <section id="energyBar" class="energy-bar" aria-label="Energie"></section>
+          <section id="unitActionControls" class="unit-action-controls" aria-label="Unit acties"></section>
+          <section id="selectedUnitPanel" class="selected-unit-panel"></section>
+          <div id="hand" class="hand"></div>
+        </section>
+
+        <aside class="side-panel">
+          <section class="panel-section unit-details">
+            <h2>Selectie</h2>
+            <div id="detailsPanel" class="details-panel">Nog niets geselecteerd.</div>
+          </section>
+
+          <section class="panel-section">
+            <h2>Battle log</h2>
+            <div id="battleLog" class="battle-log"></div>
+          </section>
+
+          <section class="panel-section">
+            <h2>Image debug</h2>
+            <div id="imageDebug" class="image-debug"></div>
+          </section>
+
+          <section class="panel-section test-panel">
+            <h2>Developer tests</h2>
+            <div id="testButtons" class="test-buttons"></div>
+            <div id="testResults" class="test-results"></div>
+          </section>
+        </aside>
+      </section>
+      </section>
+
+      <section id="rulesView" class="app-view rules-view"></section>
+      <section id="cardsView" class="app-view cards-view">
+        <div class="cards-overview-head">
+          <div>
+            <p class="eyebrow">Database</p>
+            <h2>Alle kaarten</h2>
+          </div>
+          <div class="card-filters" id="cardFilters"></div>
+        </div>
+        <div id="allCardsOverview" class="all-cards-grid"></div>
+      </section>
+      <section id="keywordsView" class="app-view keywords-view">
+        <div class="cards-overview-head">
+          <div>
+            <p class="eyebrow">Database</p>
+            <h2>Keywords</h2>
+          </div>
+        </div>
+        <div id="keywordsOverview" class="keywords-overview"></div>
+      </section>
+    </main>
+
+    <script type="module" src="src/main.js?v=range-manhattan-1"></script>
+  </body>
+</html>
+
+
+
+
+
+
