@@ -1,5 +1,7 @@
-export const CARD_IMAGE_DIR = "assets/cards/";
-export const PLACEHOLDER_IMAGE = `${CARD_IMAGE_DIR}placeholder.svg`;
+const assetPath = (path) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, "")}`;
+
+export const CARD_IMAGE_DIR = assetPath("assets/cards/");
+export const PLACEHOLDER_IMAGE = assetPath("assets/cards/placeholder.svg");
 
 // ZET HIER ALLE AFBEELDINGBESTANDEN DIE IN assets/cards/ STAAN
 export const availableImages = [
