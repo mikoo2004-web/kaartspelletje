@@ -600,8 +600,14 @@ function testAnts() {
   getPlayer(2).hand = [];
   state.activePlayer = 2;
   endTurn();
-  const passiveAnt = state.units.find((unit) => unit.cardId === "mier-token" && unit.owner === 1 && unit.antCount === 1);
-  expect(!!passiveAnt, "Mierenkoningin should spawn Mier x1 at owner upkeep");
+  const passiveAnts = state.units.filter((unit) =>
+    unit.cardId === "mier-token" &&
+    unit.owner === 1 &&
+    unit.antCount === 1 &&
+    Math.abs(unit.x - queen.x) <= 1 &&
+    Math.abs(unit.y - queen.y) <= 1
+  );
+  expect(passiveAnts.length === 3, "Mierenkoningin should spawn 3 Mier x1 tokens in her 3x3 at owner upkeep");
 
   clearNonBases();
   const splitQueen = addUnit("mierenkoningin", 1, 4, 4);
