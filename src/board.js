@@ -618,7 +618,7 @@ function renderUnit(unit) {
     renderCooldownBadge(unit)
   ].join("");
   token.innerHTML = `
-    <img src="${unit.image}" alt="${unit.name}" onerror="this.src='assets/cards/placeholder.svg'; this.onerror=null;">
+    <img src="${unit.image}" alt="${unit.name}" onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;">
     <div class="unit-meta">
       <div class="board-piece-name unit-name">P${unit.owner} ${unit.name}</div>
       ${isAntToken(unit) ? `<div class="status-line">antCount ${unit.antCount || 1} · dmg ${(unit.antCount || 1) * 10}</div>` : ""}
@@ -652,7 +652,7 @@ function renderHand() {
     if (index === state.selectedCardIndex) button.classList.add("selected");
     if (!isDiscarding && (card.cost ?? 0) > player.energy) button.classList.add("unaffordable");
     button.innerHTML = `
-      <img src="${card.image}" alt="${card.name}" onerror="this.src='assets/cards/placeholder.svg'; this.onerror=null;">
+      <img src="${card.image}" alt="${card.name}" onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;">
       <div class="card-body">
         <div class="card-title"><span>${card.name}</span><span class="cost-badge"><span class="cost-icon"></span>${card.cost ?? 0}</span></div>
         ${renderCardStats(card)}
@@ -727,7 +727,7 @@ export function renderSelectedUnitPanel() {
   if (unit.type === "base") {
     selectedUnitPanelEl.innerHTML = `
       <div class="selected-unit-card p${unit.owner} base-summary">
-        <img src="${unit.image}" alt="${unit.name}" onerror="this.src='assets/cards/placeholder.svg'; this.onerror=null;">
+        <img src="${unit.image}" alt="${unit.name}" onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;">
         <div class="selected-unit-info">
           <div class="selected-unit-head">
             <h2>${unit.name}</h2>
@@ -758,7 +758,7 @@ export function renderSelectedUnitPanel() {
 
   selectedUnitPanelEl.innerHTML = `
     <div class="selected-unit-card p${unit.owner}">
-      <img src="${unit.image}" alt="${unit.name}" onerror="this.src='assets/cards/placeholder.svg'; this.onerror=null;">
+      <img src="${unit.image}" alt="${unit.name}" onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;">
       <div class="selected-unit-info">
         <div class="selected-unit-head">
           <h2>${unit.name}</h2>
@@ -880,7 +880,7 @@ export function renderAllCardsOverview() {
     .map((card) => {
       return `
         <article class="card overview-card full-card">
-          <img src="${card.image}" alt="${card.name}" onerror="this.src='assets/cards/placeholder.svg'; this.onerror=null;">
+          <img src="${card.image}" alt="${card.name}" onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;">
           <div class="card-body">
             <div class="card-title"><span>${card.name}</span><span class="cost-badge"><span class="cost-icon"></span>${card.cost ?? 0}</span></div>
             ${card.tags?.includes("token") ? `<p class="token-label">Token / niet in deck</p>` : ""}
@@ -953,7 +953,7 @@ function renderKeywordCardChip(card) {
   const costLabel = card.cost !== undefined ? `${card.cost} energy` : "-";
   return `
     <div class="keyword-card-chip" title="${card.name}">
-      <img src="${card.image}" alt="${card.name}" loading="lazy" onerror="this.src='assets/cards/placeholder.png'">
+      <img src="${card.image}" alt="${card.name}" loading="lazy" onerror="this.src='onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;"'">
       <div>
         <strong>${card.name}</strong>
         <span>${costLabel} · ${typeLabel}</span>
