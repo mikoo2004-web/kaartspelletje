@@ -618,10 +618,28 @@ function testAnts() {
   expect(stacked?.antCount === 2 && stacked.hp === 20 && stacked.attacks[0].damage === 20, "own Mieren should stack into x2 with 20 HP/damage");
 
   applyDamage(stacked, 25);
-  expect(stacked.antCount === 0 || !state.units.includes(stacked), "Mier(en) x2 should disappear from 25 damage");
+  expect(stacked.antCount === 1 && stacked.hp === 10, "single-hit 25 damage should kill max 1 ant");
   const bigAnt = spawnAntToken(1, 1, 1, 10);
   applyDamage(bigAnt, 25);
-  expect(bigAnt.antCount === 8 && bigAnt.hp === 80 && bigAnt.attacks[0].damage === 80, "25 damage should kill 2 ants and drop x10 to x8");
+  expect(bigAnt.antCount === 9 && bigAnt.hp === 90 && bigAnt.attacks[0].damage === 90, "single-hit 25 damage should drop x10 to x9");
+
+  const dartTarget = spawnAntToken(2, 1, 2, 10);
+  const dart = addUnit("dart-monkey", 1, 1, 1);
+  expect(attackUnit(dart, dartTarget), "Dart Monkey should attack Mier(en)");
+  expect(dartTarget.antCount === 9, "Dart Monkey single-hit should kill exactly 1 ant");
+
+  clearNonBases();
+  const pamTarget = spawnAntToken(2, 4, 3, 10);
+  const pam = addUnit("pam", 1, 4, 4);
+  pam.attacks = [{ name: "ranged", damage: 50, range: 1, hits: 3 }];
+  expect(attackUnit(pam, pamTarget), "Pam-style multi-hit should attack Mier(en)");
+  expect(pamTarget.antCount === 7, "3 multi-hit hits should kill 3 ants");
+
+  const splashAnt = spawnAntToken(2, 6, 6, 10);
+  applyDamage(splashAnt, 50, null, { antDamageType: "splash", sourceName: "test splash" });
+  expect(splashAnt.antCount === 5, "50 splash damage should kill 5 ants");
+  applyDamage(splashAnt, 200, null, { antDamageType: "splash", sourceName: "test splash" });
+  expect(!state.units.includes(splashAnt), "200 splash damage should remove remaining ant stack");
 
   clearNonBases();
   const runner = spawnAntToken(1, 0, 0, 1);
@@ -681,6 +699,12 @@ function testGustav() {
 
 function testMedusa() {
   clearNonBases();
+  const flyingMedusa = addUnit("medusa", 1, 4, 4);
+  const flyingTarget = addUnit("jet", 2, 4, 3);
+  expect(moveUnit(flyingMedusa, 4, 3), "Medusa should be able to move onto a flying enemy tile");
+  expect(!flyingTarget.statuses.standbeeld && flyingTarget.cardId === "jet", "Medusa should not petrify flying units");
+
+  clearNonBases();
   const medusa = addUnit("medusa", 1, 4, 4);
   const steve = addUnit("steve", 2, 4, 3);
   steve.hp = 250;
@@ -699,7 +723,7 @@ function testMedusa() {
   const antMedusa = addUnit("medusa", 1, 4, 4);
   const ants = spawnAntToken(2, 4, 3, 8);
   expect(moveUnit(antMedusa, 4, 3), "Medusa should petrify ant stacks");
-  expect(ants.statuses.standbeeld && ants.hp === 80 && !ants.antCount, "ant stack should become one statue with combined HP");
+  expect(ants.statuses.standbeeld && ants.hp === 70 && !ants.antCount, "Medusa should stomp 1 ant and petrify the surviving stack as one statue");
 }
 
 function testA10() {
