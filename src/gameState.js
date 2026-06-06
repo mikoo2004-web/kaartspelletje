@@ -648,14 +648,26 @@ function spawnQueenAnts(playerId) {
   state.units
     .filter((unit) => unit.owner === playerId && unit.cardId === "mierenkoningin" && !isPetrified(unit))
     .forEach((queen) => {
-      const spot = getFreeOrthogonalSpot(queen.x, queen.y);
-      if (!spot) {
+      const spots = getFreeAdjacentSpots(queen.x, queen.y).slice(0, 3);
+      if (!spots.length) {
         addLog("Mierenkoningin vindt geen vrij vakje voor Mier x1.");
         return;
       }
-      spawnAntToken(playerId, spot.x, spot.y, 1);
-      addLog("Mierenkolonie spawnt Mier x1.");
+      spots.forEach((spot) => spawnAntToken(playerId, spot.x, spot.y, 1));
+      addLog(`Mierenkolonie spawnt ${spots.length} Mier${spots.length === 1 ? "" : "en"} x1 rond de Mierenkoningin.`);
     });
+}
+
+export function getFreeAdjacentSpots(x, y) {
+  const spots = [];
+  for (let dx = -1; dx <= 1; dx += 1) {
+    for (let dy = -1; dy <= 1; dy += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const spot = { x: x + dx, y: y + dy };
+      if (isInsideBoard(spot.x, spot.y) && unitsAt(spot.x, spot.y).length === 0) spots.push(spot);
+    }
+  }
+  return spots;
 }
 
 export function getFreeOrthogonalSpot(x, y) {
