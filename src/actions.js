@@ -188,10 +188,22 @@ export function moveUnit(unit, x, y) {
 }
 
 function resolveMedusaPetrify(medusa) {
+  const flyingTarget = unitsAt(medusa.x, medusa.y).find((candidate) =>
+    candidate.owner !== medusa.owner
+    && candidate.type === "unit"
+    && candidate.unitId !== medusa.unitId
+    && candidate.tags?.includes("flying")
+    && !isPetrified(candidate)
+  );
+  if (flyingTarget) {
+    addLog("Medusa kan flying targets niet verstenen.");
+    return;
+  }
   const target = unitsAt(medusa.x, medusa.y).find((candidate) =>
     candidate.owner !== medusa.owner
     && candidate.type === "unit"
     && candidate.unitId !== medusa.unitId
+    && !candidate.tags?.includes("flying")
     && !candidate.tags?.includes("barrier")
     && !isPetrified(candidate)
   );
@@ -271,7 +283,7 @@ function resolveAntStomp(unit) {
   if (!unit || unit.tags?.includes("flying") || unit.type !== "unit") return;
   unitsAt(unit.x, unit.y)
     .filter((candidate) => candidate.owner !== unit.owner && isAntToken(candidate))
-    .forEach((ant) => damageAntStack(ant, 10, unit, "vertrapt"));
+    .forEach((ant) => damageAntStack(ant, 10, unit, { antDamageType: "stepOnAnt", sourceName: "vertrapt" }));
 }
 
 function getCastleChargeTargets(unit, path) {
@@ -508,7 +520,7 @@ export function attackUnit(attacker, target) {
       for (let i = 0; i < hits; i += 1) {
         const beforeX = candidate.x;
         const beforeY = candidate.y;
-        applyDamage(candidate, splashDamage, attacker, { ignoreBuildingProtection: attack.ignoresBuildingProtection, attackName: attack.name });
+        applyDamage(candidate, splashDamage, attacker, { ignoreBuildingProtection: attack.ignoresBuildingProtection, attackName: attack.name, antDamageType: "splash" });
         if (!getUnit(candidate.unitId)) break;
         if (candidate.x !== beforeX || candidate.y !== beforeY) break;
       }
@@ -530,7 +542,7 @@ export function attackUnit(attacker, target) {
           for (let i = 0; i < 2; i += 1) {
             const beforeX = candidate.x;
             const beforeY = candidate.y;
-            applyDamage(candidate, 50, attacker, { attackName: "ranged" });
+            applyDamage(candidate, 50, attacker, { attackName: "ranged", antDamageType: "splash" });
             if (!getUnit(candidate.unitId)) break;
             if (candidate.x !== beforeX || candidate.y !== beforeY) break;
           }
@@ -628,7 +640,7 @@ function applyA10Attack(attacker, target, attack) {
     .filter((unit) => unit.type !== "base" && unit.unitId !== target.unitId && distance(unit, target) <= 1)
     .forEach((unit) => {
       if (!getUnit(unit.unitId)) return;
-      applyDamage(unit, 50, attacker, { attackName: "a10-splash" });
+      applyDamage(unit, 50, attacker, { attackName: "a10-splash", antDamageType: "splash", sourceName: "A-10 splash" });
       addLog(`${unit.name} krijgt 50 splash damage van A-10 Thunderbolt.`);
     });
 }
@@ -682,7 +694,7 @@ function applyGustavAttack(attacker, target, hasMainTarget) {
     .filter((unit) => unit.type !== "base" && distance(unit, impact) <= 1 && unit.unitId !== target.unitId)
     .forEach((unit) => {
       if (!getUnit(unit.unitId)) return;
-      applyDamage(unit, 200, attacker, { attackName: "siege-splash" });
+      applyDamage(unit, 200, attacker, { attackName: "siege-splash", antDamageType: "splash", sourceName: "Schwerer Gustav splash" });
       addLog(`${unit.name} krijgt 200 splash damage.`);
     });
 }
@@ -739,7 +751,10 @@ export function applyDamage(target, amount, attacker = null, options = {}) {
     return;
   }
   if (isAntToken(target)) {
-    damageAntStack(target, amount, attacker, options.ignoreShield ? "true damage" : "damage");
+    damageAntStack(target, amount, attacker, {
+      antDamageType: options.antDamageType || "singleHit",
+      sourceName: options.sourceName || options.attackName || (options.ignoreShield ? "true damage" : "damage")
+    });
     return;
   }
   if ((target.maxHp || 0) <= 0) {
@@ -767,24 +782,33 @@ export function applyDamage(target, amount, attacker = null, options = {}) {
   }
 }
 
-function damageAntStack(target, amount, attacker = null, sourceName = "damage") {
+function damageAntStack(target, amount, attacker = null, options = {}) {
   if (!isAntToken(target) || amount <= 0) return;
-  const killed = Math.floor(amount / 10);
-  target.lastDamageAmount = killed * 10;
-  target.lastDamageAttackerId = attacker?.unitId || null;
+  const sourceName = options.sourceName || "damage";
+  const type = options.antDamageType || "singleHit";
+  const killed = type === "splash" || type === "area" || type === "deathExplosion"
+    ? Math.floor(amount / 10)
+    : type === "stepOnAnt"
+      ? 1
+      : amount >= 10 ? 1 : 0;
   if (killed <= 0) {
+    target.lastDamageAmount = 0;
+    target.lastDamageAttackerId = attacker?.unitId || null;
     addLog(`${target.name} krijgt ${amount} ${sourceName}, maar restdamage onder 10 vervalt.`);
     return;
   }
   const before = target.antCount || 1;
-  target.antCount = Math.max(0, before - killed);
+  const actualKilled = Math.min(before, killed);
+  target.lastDamageAmount = actualKilled * 10;
+  target.lastDamageAttackerId = attacker?.unitId || null;
+  target.antCount = Math.max(0, before - actualKilled);
   if (target.antCount <= 0) {
-    addLog(`${target.name} verliest ${before} mier${before === 1 ? "" : "en"} en verdwijnt.`);
+    addLog(`${sourceName} raakt Mier(en) x${before}. ${before} mier${before === 1 ? "" : "en"} ster${before === 1 ? "ft" : "ven"} en de stack verdwijnt.`);
     removeUnit(target, attacker);
     return;
   }
   syncAntStats(target);
-  addLog(`${before - target.antCount} mier${before - target.antCount === 1 ? "" : "en"} sterven door ${sourceName}. ${target.name} blijft over.`);
+  addLog(`${sourceName} raakt Mier(en) x${before}. ${actualKilled} mier${actualKilled === 1 ? "" : "en"} ster${actualKilled === 1 ? "ft" : "ven"}. ${target.name} blijft over.`);
 }
 
 export function teleportUnitRandomly(unit, range = 2) {
