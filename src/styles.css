@@ -1236,19 +1236,57 @@ h3 {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  align-items: end;
+  align-items: start;
   margin-bottom: 12px;
 }
 
 .card-filters {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(190px, 1.35fr) repeat(3, minmax(145px, 1fr)) auto;
   gap: 8px;
+  align-items: end;
+  flex: 1;
+  width: min(100%, 920px);
 }
 
-.card-filters button {
+.card-filter-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.card-filter-field span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.card-filter-field input,
+.card-filter-field select {
+  width: 100%;
   min-height: 34px;
+  border: 1px solid rgba(123, 105, 76, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 252, 245, 0.94);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
   padding: 0 10px;
+}
+
+.card-filter-field input:focus,
+.card-filter-field select:focus {
+  outline: 2px solid rgba(45, 121, 173, 0.28);
+  border-color: rgba(45, 121, 173, 0.72);
+}
+
+.reset-card-filters {
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
 }
 
 .all-cards-grid {
@@ -1257,6 +1295,15 @@ h3 {
   justify-content: center;
   gap: 16px;
   align-items: start;
+}
+
+.empty-card-results {
+  grid-column: 1 / -1;
+  margin: 18px 0 8px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 900;
+  text-align: center;
 }
 
 .overview-card {
@@ -1525,6 +1572,16 @@ h3 {
     flex-direction: column;
   }
 
+  .card-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .card-filter-field.search,
+  .reset-card-filters {
+    grid-column: 1 / -1;
+  }
+
   .selected-unit-card {
     grid-template-columns: 120px minmax(0, 1fr);
   }
@@ -1572,6 +1629,15 @@ h3 {
 
   .all-cards-grid {
     grid-template-columns: minmax(260px, 1fr);
+  }
+
+  .card-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .card-filter-field.search,
+  .reset-card-filters {
+    grid-column: auto;
   }
 
   .overview-card img {
