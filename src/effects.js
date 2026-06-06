@@ -52,7 +52,7 @@ export function useSpell(card, x, y, targetUnitId = null) {
     const useColumn = window.confirm("OK = kolom raken. Annuleren = rij raken.");
     state.units.slice().forEach((unit) => {
       if ((useColumn && unit.x === x) || (!useColumn && unit.y === y)) {
-        applyDamage(unit, unit.owner === playerId ? 100 : 200);
+        applyDamage(unit, unit.owner === playerId ? 100 : 200, null, { antDamageType: "area", sourceName: "Nyan Kat Regen" });
       }
     });
     addLog(`Nyan Kat Regen raakt een hele ${useColumn ? "kolom" : "rij"}.`);
@@ -61,7 +61,7 @@ export function useSpell(card, x, y, targetUnitId = null) {
   if (card.id === "sneeuwstorm") {
     state.units.slice().forEach((unit) => {
       if (unit.owner === playerId || unit.type === "base") return;
-      applyDamage(unit, 50);
+      applyDamage(unit, 50, null, { antDamageType: "area", sourceName: "Sneeuwstorm" });
       if (unit.tags.includes("flying")) unit.statuses.grounded = 1;
     });
     addLog("Sneeuwstorm doet 50 damage op enemy troepen en groundt enemy flying units.");
@@ -71,7 +71,7 @@ export function useSpell(card, x, y, targetUnitId = null) {
     state.units.slice().forEach((unit) => {
       if (unit.x === x && unit.y === y) {
         if (unit.type === "base") return;
-        applyDamage(unit, 500, null, { ignoreShield: true, ignoreTitanHide: true });
+        applyDamage(unit, 500, null, { ignoreShield: true, ignoreTitanHide: true, antDamageType: "area", sourceName: "Nuke" });
         addLog(`Nuke doet 500 true damage op ${unit.name}.`);
       }
     });
@@ -301,7 +301,7 @@ function useCreeperExplode(unit) {
   const targets = state.units.slice().filter((target) => target.unitId !== unit.unitId && target.type !== "base" && distance(unit, target) <= 1);
   removeUnit(unit);
   targets.forEach((target) => {
-    if (getUnit(target.unitId)) applyDamage(target, 300, unit);
+    if (getUnit(target.unitId)) applyDamage(target, 300, unit, { antDamageType: "deathExplosion", sourceName: "Creeper death explosion" });
   });
   addLog("Creeper explodeert voor 300 damage in radius 1.");
   return true;
