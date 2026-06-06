@@ -1,4 +1,4 @@
-import { baseCards, buildImageDebugRows, cards } from "./cards.js";
+import { baseCards, buildImageDebugRows, cards, PLACEHOLDER_IMAGE } from "./cards.js";
 import { activateAbility, activateHeal, attackGustavTile, attackUnit, canAttack, canEnterEnemyOccupiedTile, distance, getBaseTileBlockers, getReachableAntSquares, getValidGustavTargetTiles, isDeployCell, isSmilerUntargetableBy, makeBaseAttackTarget, moveUnit, playCard, rangedDistance } from "./actions.js";
 import { addLog, clearSelection, discardCardForEndTurn, endTurn, getBase, getPlayer, getUnit, isAntToken, isPetrified, MAX_ENERGY, resetGame, state, tileAt, unitsAt } from "./gameState.js";
 
