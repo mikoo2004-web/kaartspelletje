@@ -1,7 +1,5 @@
-const assetPath = (path) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, "")}`;
-
-export const CARD_IMAGE_DIR = assetPath("assets/cards/");
-export const PLACEHOLDER_IMAGE = assetPath("assets/cards/placeholder.svg");
+export const CARD_IMAGE_DIR = "assets/cards/";
+export const PLACEHOLDER_IMAGE = `${CARD_IMAGE_DIR}placeholder.svg`;
 
 // ZET HIER ALLE AFBEELDINGBESTANDEN DIE IN assets/cards/ STAAN
 export const availableImages = [
@@ -139,23 +137,20 @@ function scoreImage(card, imagePath) {
 }
 
 export function getImageForCard(card) {
-  if (manualImageMap[card.id]) return assetPath(manualImageMap[card.id]);
+  if (manualImageMap[card.id]) return manualImageMap[card.id];
 
   const id = normalizeName(card.id);
   const name = normalizeName(card.name);
-
   const exact = availableImages.find((path) => {
     const file = normalizeName(fileBase(path));
     return file === id || file === name;
   });
-
-  if (exact) return assetPath(exact);
+  if (exact) return exact;
 
   const ranked = availableImages
     .map((path) => ({ path, score: scoreImage(card, path) }))
     .sort((a, b) => b.score - a.score);
-
-  return ranked[0]?.score >= 24 ? assetPath(ranked[0].path) : PLACEHOLDER_IMAGE;
+  return ranked[0]?.score >= 24 ? ranked[0].path : PLACEHOLDER_IMAGE;
 }
 
 const attack = (name, damage, range = 1, extra = {}) => ({ name, damage, range, ...extra });
@@ -225,7 +220,7 @@ export const cards = [
   { id: "mier-token", name: "Mier(en)", type: "unit", role: "swarm-token", tags: ["unit", "token", "summon", "melee", "swarm", "mierenlijn", "mier-en"], maxHp: 10, shield: 0, speed: 1, cost: 0, antCount: 1, attacks: [attack("melee", 10, 0)], abilityText: "Token / niet in deck. Swarm-token. antCount bepaalt HP en damage: elke mier heeft 10 HP en 10 melee damage. Eigen Mier(en)-tokens stacken automatisch. Stappen naar vakjes met eigen Mier(en) kosten 0 movement, elk mierenvakje maximaal 1 keer per movement." },
   { id: "schwerer-gustav", name: "Schwerer Gustav", type: "unit", role: "siege", tags: ["unit", "siege", "ranged", "splash", "line-attack", "slow-move"], maxHp: 1000, shield: 0, speed: 1, cost: 8, abilityCost: 1, attacks: [attack("siege", 400, 5, { minRange: 2, splashDamage: 200, splashRadius: 1, lineOnly: true })], abilityText: "Attack: 400 damage, range 2-5, alleen in een rechte lijn. Kan niet op range 1. Splash doet 200 damage binnen range 1 rond het doelvakje en raakt enemies en friendlies. Mag ook een leeg vakje in geldige range aanvallen voor alleen splash. Movement: beweegt maar 1 keer per 2 eigen beurten en alleen rechtdoor of naar achter. Ability: Zijspoor. Kost 1 energie: verplaats 1 baan links of rechts naar een geldig vrij vakje. Daarna kan Schwerer Gustav 1 beurt niks doen." }
   ,
-  { id: "medusa", name: "Medusa", type: "unit", role: "control", tags: ["unit", "melee", "control", "petrify"], maxHp: 300, shield: 0, speed: 1, cost: 4, attacks: [attack("melee", 0, 0)], abilityText: "Passive: Verstening. Als Medusa op hetzelfde vakje komt als een geldige enemy unit, verandert die unit automatisch in een standbeeld. Buildings, barriers en non-unit objecten kunnen niet versteend worden. Als Medusa doodgaat, keren haar standbeelden terug naar hun originele vorm met hun huidige HP en 0 shield." }
+  { id: "medusa", name: "Medusa", type: "unit", role: "control", tags: ["unit", "melee", "control", "petrify"], maxHp: 300, shield: 0, speed: 1, cost: 4, attacks: [attack("melee", 0, 0)], abilityText: "Passive: Verstening. Als Medusa op hetzelfde vakje komt als een geldige non-flying enemy unit, verandert die unit automatisch in een standbeeld. Flying units, buildings, barriers en non-unit objecten kunnen niet versteend worden. Als Medusa doodgaat, keren haar standbeelden terug naar hun originele vorm met hun huidige HP en 0 shield." }
   ,
   { id: "a-10-thunderbolt", name: "A-10 Thunderbolt", type: "unit", role: "flying-ground-attack", tags: ["unit", "flying", "ranged", "ground-attack", "splash", "multi-hit"], maxHp: 250, shield: 400, speed: 2, cost: 5, attacks: [attack("BRRRRT", 25, 2, { hits: 10 }), attack("air", 150, 2)], abilityText: "Flying ground-attack unit. Tegen non-flying units en buildings gebruikt A-10 BRRRRT: 25 x10 damage, range 2. Tegen flying units gebruikt hij Air attack: 150 damage, range 2. Na de attack doet hij 50 splash damage binnen range 1 rondom het target; splash raakt enemies en friendlies." }
 ];
