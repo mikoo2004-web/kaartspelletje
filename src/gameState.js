@@ -271,6 +271,10 @@ export function isPetrified(unit) {
 export function petrifyUnitByMedusa(medusa, target) {
   if (!medusa || medusa.cardId !== "medusa" || !target || target.owner === medusa.owner) return false;
   if (target.type !== "unit" || target.type === "base" || target.tags?.includes("barrier") || isPetrified(target)) return false;
+  if (target.tags?.includes("flying")) {
+    addLog("Medusa kan flying targets niet verstenen.");
+    return false;
+  }
   const currentHp = isAntToken(target) ? (target.antCount || 1) * 10 : Math.max(1, target.hp || target.currentHp || 1);
   target.petrifiedOriginal = {
     cardId: target.cardId,
