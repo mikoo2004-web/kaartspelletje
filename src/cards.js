@@ -139,20 +139,23 @@ function scoreImage(card, imagePath) {
 }
 
 export function getImageForCard(card) {
-  if (manualImageMap[card.id]) return manualImageMap[card.id];
+  if (manualImageMap[card.id]) return assetPath(manualImageMap[card.id]);
 
   const id = normalizeName(card.id);
   const name = normalizeName(card.name);
+
   const exact = availableImages.find((path) => {
     const file = normalizeName(fileBase(path));
     return file === id || file === name;
   });
-  if (exact) return exact;
+
+  if (exact) return assetPath(exact);
 
   const ranked = availableImages
     .map((path) => ({ path, score: scoreImage(card, path) }))
     .sort((a, b) => b.score - a.score);
-  return ranked[0]?.score >= 24 ? ranked[0].path : PLACEHOLDER_IMAGE;
+
+  return ranked[0]?.score >= 24 ? assetPath(ranked[0].path) : PLACEHOLDER_IMAGE;
 }
 
 const attack = (name, damage, range = 1, extra = {}) => ({ name, damage, range, ...extra });
