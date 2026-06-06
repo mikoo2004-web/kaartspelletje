@@ -1,4 +1,4 @@
-import { baseCards, buildImageDebugRows, cards, PLACEHOLDER_IMAGE } from "./cards.js";
+import { baseCards, buildImageDebugRows, cards } from "./cards.js";
 import { activateAbility, activateHeal, attackGustavTile, attackUnit, canAttack, canEnterEnemyOccupiedTile, distance, getBaseTileBlockers, getReachableAntSquares, getValidGustavTargetTiles, isDeployCell, isSmilerUntargetableBy, makeBaseAttackTarget, moveUnit, playCard, rangedDistance } from "./actions.js";
 import { addLog, clearSelection, discardCardForEndTurn, endTurn, getBase, getPlayer, getUnit, isAntToken, isPetrified, MAX_ENERGY, resetGame, state, tileAt, unitsAt } from "./gameState.js";
 
@@ -25,7 +25,13 @@ const views = {
   keywords: document.querySelector("#keywordsView")
 };
 
-let activeCardFilter = "all";
+const defaultCardGalleryFilters = {
+  search: "",
+  energy: "all",
+  type: "all",
+  sort: "name-asc"
+};
+let cardGalleryFilters = { ...defaultCardGalleryFilters };
 
 const ICONS = {
   cost: { emoji: "&#9889;", image: "" },
@@ -618,7 +624,7 @@ function renderUnit(unit) {
     renderCooldownBadge(unit)
   ].join("");
   token.innerHTML = `
-    <img src="${unit.image}" alt="${unit.name}" onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;">
+    <img src="${unit.image}" alt="${unit.name}" onerror="this.src='assets/cards/placeholder.svg'; this.onerror=null;">
     <div class="unit-meta">
       <div class="board-piece-name unit-name">P${unit.owner} ${unit.name}</div>
       ${isAntToken(unit) ? `<div class="status-line">antCount ${unit.antCount || 1} · dmg ${(unit.antCount || 1) * 10}</div>` : ""}
@@ -652,7 +658,7 @@ function renderHand() {
     if (index === state.selectedCardIndex) button.classList.add("selected");
     if (!isDiscarding && (card.cost ?? 0) > player.energy) button.classList.add("unaffordable");
     button.innerHTML = `
-      <img src="${card.image}" alt="${card.name}" onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;">
+      <img src="${card.image}" alt="${card.name}" onerror="this.src='assets/cards/placeholder.svg'; this.onerror=null;">
       <div class="card-body">
         <div class="card-title"><span>${card.name}</span><span class="cost-badge"><span class="cost-icon"></span>${card.cost ?? 0}</span></div>
         ${renderCardStats(card)}
@@ -727,7 +733,7 @@ export function renderSelectedUnitPanel() {
   if (unit.type === "base") {
     selectedUnitPanelEl.innerHTML = `
       <div class="selected-unit-card p${unit.owner} base-summary">
-        <img src="${unit.image}" alt="${unit.name}" onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;">
+        <img src="${unit.image}" alt="${unit.name}" onerror="this.src='assets/cards/placeholder.svg'; this.onerror=null;">
         <div class="selected-unit-info">
           <div class="selected-unit-head">
             <h2>${unit.name}</h2>
@@ -758,7 +764,7 @@ export function renderSelectedUnitPanel() {
 
   selectedUnitPanelEl.innerHTML = `
     <div class="selected-unit-card p${unit.owner}">
-      <img src="${unit.image}" alt="${unit.name}" onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;">
+      <img src="${unit.image}" alt="${unit.name}" onerror="this.src='assets/cards/placeholder.svg'; this.onerror=null;">
       <div class="selected-unit-info">
         <div class="selected-unit-head">
           <h2>${unit.name}</h2>
@@ -850,37 +856,22 @@ function renderImageDebug() {
 
 export function renderAllCardsOverview() {
   if (!allCardsOverviewEl || !cardFiltersEl) return;
-  const filters = [
-    ["all", "Alle kaarten"],
-    ["unit", "Units"],
-    ["building", "Buildings"],
-    ["spell", "Spells"],
-    ["token", "Tokens"],
-    ["flying", "Flying"],
-    ["healer", "Healers"]
-  ];
-  cardFiltersEl.innerHTML = filters
-    .map(([id, label]) => `<button class="${activeCardFilter === id ? "active" : ""}" data-filter="${id}" type="button">${label}</button>`)
-    .join("");
-  cardFiltersEl.querySelectorAll("button").forEach((button) => {
-    button.addEventListener("click", () => {
-      activeCardFilter = button.dataset.filter;
-      renderAllCardsOverview();
-    });
-  });
+  renderCardGalleryControls();
 
-  const shownCards = cards.filter((card) => {
-    if (activeCardFilter === "all") return true;
-    if (activeCardFilter === "unit" || activeCardFilter === "building" || activeCardFilter === "spell") return card.type === activeCardFilter;
-    if (activeCardFilter === "token") return card.tags?.includes("token");
-    return card.tags?.includes(activeCardFilter);
-  });
+  const shownCards = cards
+    .filter(cardMatchesGalleryFilters)
+    .sort(compareGalleryCards);
+
+  if (!shownCards.length) {
+    allCardsOverviewEl.innerHTML = `<p class="empty-card-results">Geen kaarten gevonden.</p>`;
+    return;
+  }
 
   allCardsOverviewEl.innerHTML = shownCards
     .map((card) => {
       return `
         <article class="card overview-card full-card">
-          <img src="${card.image}" alt="${card.name}" onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;">
+          <img src="${card.image}" alt="${card.name}" onerror="this.src='assets/cards/placeholder.svg'; this.onerror=null;">
           <div class="card-body">
             <div class="card-title"><span>${card.name}</span><span class="cost-badge"><span class="cost-icon"></span>${card.cost ?? 0}</span></div>
             ${card.tags?.includes("token") ? `<p class="token-label">Token / niet in deck</p>` : ""}
@@ -892,6 +883,148 @@ export function renderAllCardsOverview() {
       `;
     })
     .join("");
+}
+
+function renderCardGalleryControls() {
+  const typeOptions = getCardGalleryTypes();
+  cardFiltersEl.innerHTML = `
+    <label class="card-filter-field search">
+      <span>Zoeken</span>
+      <input id="cardSearchInput" type="search" placeholder="Zoek kaartnaam..." value="${escapeAttribute(cardGalleryFilters.search)}">
+    </label>
+    <label class="card-filter-field">
+      <span>Energy</span>
+      <select id="cardEnergyFilter">
+        ${[
+          ["all", "Alle energy costs"],
+          ["0", "0 energy"],
+          ["1", "1 energy"],
+          ["2", "2 energy"],
+          ["3", "3 energy"],
+          ["4", "4 energy"],
+          ["5", "5 energy"],
+          ["6", "6 energy"],
+          ["7", "7 energy"],
+          ["8plus", "8+ energy"]
+        ].map(([value, label]) => `<option value="${value}" ${cardGalleryFilters.energy === value ? "selected" : ""}>${label}</option>`).join("")}
+      </select>
+    </label>
+    <label class="card-filter-field">
+      <span>Type</span>
+      <select id="cardTypeFilter">
+        <option value="all">Alle types</option>
+        ${typeOptions.map((type) => `<option value="${type.value}" ${cardGalleryFilters.type === type.value ? "selected" : ""}>${type.label}</option>`).join("")}
+      </select>
+    </label>
+    <label class="card-filter-field">
+      <span>Sorteren</span>
+      <select id="cardSortFilter">
+        ${[
+          ["name-asc", "Alfabetisch A-Z"],
+          ["name-desc", "Alfabetisch Z-A"],
+          ["energy-asc", "Energy laag naar hoog"],
+          ["energy-desc", "Energy hoog naar laag"],
+          ["hp-asc", "HP laag naar hoog"],
+          ["hp-desc", "HP hoog naar laag"],
+          ["damage-asc", "Damage laag naar hoog"],
+          ["damage-desc", "Damage hoog naar laag"]
+        ].map(([value, label]) => `<option value="${value}" ${cardGalleryFilters.sort === value ? "selected" : ""}>${label}</option>`).join("")}
+      </select>
+    </label>
+    <button id="resetCardFiltersBtn" class="reset-card-filters" type="button">Reset filters</button>
+  `;
+
+  cardFiltersEl.querySelector("#cardSearchInput")?.addEventListener("input", (event) => {
+    cardGalleryFilters.search = event.target.value;
+    renderAllCardsOverview();
+  });
+  cardFiltersEl.querySelector("#cardEnergyFilter")?.addEventListener("change", (event) => {
+    cardGalleryFilters.energy = event.target.value;
+    renderAllCardsOverview();
+  });
+  cardFiltersEl.querySelector("#cardTypeFilter")?.addEventListener("change", (event) => {
+    cardGalleryFilters.type = event.target.value;
+    renderAllCardsOverview();
+  });
+  cardFiltersEl.querySelector("#cardSortFilter")?.addEventListener("change", (event) => {
+    cardGalleryFilters.sort = event.target.value;
+    renderAllCardsOverview();
+  });
+  cardFiltersEl.querySelector("#resetCardFiltersBtn")?.addEventListener("click", () => {
+    cardGalleryFilters = { ...defaultCardGalleryFilters };
+    renderAllCardsOverview();
+  });
+}
+
+function getCardGalleryTypes() {
+  const wantedTypes = [
+    ["unit", "Unit", (card) => card.type === "unit"],
+    ["spell", "Spell", (card) => card.type === "spell"],
+    ["building", "Building", (card) => card.type === "building"],
+    ["flying", "Flying", (card) => card.tags?.includes("flying") || card.role?.includes("flying")],
+    ["token", "Token", (card) => card.tags?.includes("token")],
+    ["structure", "Structure", (card) => card.tags?.includes("structure") || card.tags?.includes("building") || card.type === "building"]
+  ];
+  return wantedTypes
+    .filter(([, , predicate]) => cards.some(predicate))
+    .map(([value, label]) => ({ value, label }));
+}
+
+function cardMatchesGalleryFilters(card) {
+  const search = cardGalleryFilters.search.trim().toLowerCase();
+  if (search && !card.name.toLowerCase().includes(search)) return false;
+  if (!matchesEnergyFilter(card, cardGalleryFilters.energy)) return false;
+  if (!matchesTypeFilter(card, cardGalleryFilters.type)) return false;
+  return true;
+}
+
+function matchesEnergyFilter(card, filter) {
+  if (filter === "all") return true;
+  const cost = card.cost ?? 0;
+  if (filter === "8plus") return cost >= 8;
+  return cost === Number(filter);
+}
+
+function matchesTypeFilter(card, filter) {
+  if (filter === "all") return true;
+  if (filter === "unit" || filter === "spell" || filter === "building") return card.type === filter;
+  if (filter === "flying") return card.tags?.includes("flying") || card.role?.includes("flying");
+  if (filter === "token") return card.tags?.includes("token");
+  if (filter === "structure") return card.tags?.includes("structure") || card.tags?.includes("building") || card.type === "building";
+  return card.tags?.includes(filter) || card.role === filter;
+}
+
+function compareGalleryCards(a, b) {
+  const sort = cardGalleryFilters.sort;
+  if (sort === "name-desc") return b.name.localeCompare(a.name);
+  if (sort === "energy-asc") return compareNumberThenName(a.cost ?? 0, b.cost ?? 0, a, b);
+  if (sort === "energy-desc") return compareNumberThenName(b.cost ?? 0, a.cost ?? 0, a, b);
+  if (sort === "hp-asc") return compareNumberThenName(getCardHpValue(a), getCardHpValue(b), a, b);
+  if (sort === "hp-desc") return compareNumberThenName(getCardHpValue(b), getCardHpValue(a), a, b);
+  if (sort === "damage-asc") return compareNumberThenName(getCardDamageValue(a), getCardDamageValue(b), a, b);
+  if (sort === "damage-desc") return compareNumberThenName(getCardDamageValue(b), getCardDamageValue(a), a, b);
+  return a.name.localeCompare(b.name);
+}
+
+function compareNumberThenName(first, second, cardA, cardB) {
+  const diff = first - second;
+  return diff || cardA.name.localeCompare(cardB.name);
+}
+
+function getCardHpValue(card) {
+  return (card.maxHp || 0) + (card.shield || 0);
+}
+
+function getCardDamageValue(card) {
+  return Math.max(0, ...(card.attacks || []).map((attack) => (attack.damage || 0) * (attack.hits || 1)));
+}
+
+function escapeAttribute(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 export function renderKeywordsOverview() {
@@ -953,7 +1086,7 @@ function renderKeywordCardChip(card) {
   const costLabel = card.cost !== undefined ? `${card.cost} energy` : "-";
   return `
     <div class="keyword-card-chip" title="${card.name}">
-      <img src="${card.image}" alt="${card.name}" loading="lazy" onerror="this.src='onerror="this.src='${PLACEHOLDER_IMAGE}'; this.onerror=null;"'">
+      <img src="${card.image}" alt="${card.name}" loading="lazy" onerror="this.src='assets/cards/placeholder.png'">
       <div>
         <strong>${card.name}</strong>
         <span>${costLabel} · ${typeLabel}</span>
