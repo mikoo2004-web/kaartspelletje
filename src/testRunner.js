@@ -338,7 +338,7 @@ function testBalancePatch() {
 
   clearNonBases();
   const sniper = addUnit("sniper-monkey", 1, 4, 4);
-  const trump = addUnit("trump", 1, 5, 5);
+  const trump = addUnit("trump", 1, 5, 6);
   const target = addUnit("steve", 2, 4, 6);
   expect(attackUnit(sniper, target), "Sniper Monkey should attack at range");
   expect(target.statuses.targeted >= 4, "Sniper Monkey should mark target for 4 turns");
@@ -675,21 +675,29 @@ function testGustav() {
   const rangeTwo = addUnit("steve", 2, 4, 2);
   const diagonal = addUnit("steve", 2, 5, 3);
   expect(!canAttack(gustav, rangeOne), "Schwerer Gustav should not attack range 1");
-  expect(canAttack(gustav, rangeTwo), "Schwerer Gustav should attack straight-line range 2");
+  expect(!canAttack(gustav, rangeTwo), "Schwerer Gustav should not shoot through a range-1 blocker");
   expect(!canAttack(gustav, diagonal), "Schwerer Gustav should not attack diagonal targets");
 
+  clearNonBases();
+  const clearGustav = addUnit("schwerer-gustav", 1, 4, 4);
+  const clearRangeTwo = addUnit("steve", 2, 4, 2);
+  expect(canAttack(clearGustav, clearRangeTwo), "Schwerer Gustav should attack unblocked straight-line range 2");
+
+  clearNonBases();
+  const splashGustav = addUnit("schwerer-gustav", 1, 4, 4);
+  const splashTarget = addUnit("steve", 2, 4, 2);
   const splashFriend = addUnit("pam", 1, 5, 2);
   const splashEnemy = addUnit("turk", 2, 3, 2);
-  expect(attackUnit(gustav, rangeTwo), "Schwerer Gustav should fire on unit target");
-  expect(rangeTwo.hp === 100, "main target should take 400 damage");
+  expect(attackUnit(splashGustav, splashTarget), "Schwerer Gustav should fire on unit target");
+  expect(splashTarget.shield === 0 && splashTarget.hp === 300, "main target should take one 400-damage hit, with shield blocking without same-hit overflow");
   expect(splashFriend.hp === 200, "friendly unit near impact should take 200 splash");
   expect(!state.units.includes(splashEnemy), "enemy token near impact should take 200 splash and die");
 
   clearNonBases();
   const emptyShotGustav = addUnit("schwerer-gustav", 1, 4, 4);
-  const emptySplash = addUnit("steve", 2, 6, 4);
-  expect(attackGustavTile(emptyShotGustav, 5, 4), "Schwerer Gustav should fire at an empty valid tile");
-  expect(emptySplash.hp === 100, "empty tile shot should deal 200 splash around chosen tile");
+  const emptySplash = addUnit("steve", 2, 7, 4);
+  expect(attackGustavTile(emptyShotGustav, 6, 4), "Schwerer Gustav should fire at an empty valid tile");
+  expect(emptySplash.shield === 0 && emptySplash.hp === 300, "empty tile shot should deal one 200 splash hit, with shield blocking without same-hit overflow");
 
   clearNonBases();
   const sideTrackGustav = addUnit("schwerer-gustav", 1, 4, 4);
@@ -739,7 +747,7 @@ function testA10() {
   const splashEnemy = addUnit("turk", 2, 5, 2);
   const splashFriendly = addUnit("pam", 1, 3, 2);
   expect(attackUnit(a10, groundTarget), "A-10 should attack ground target at range 2");
-  expect(groundTarget.hp === 50, "BRRRRT should do 25x10 total damage to ground target");
+  expect(groundTarget.shield === 0 && groundTarget.hp === 100, "BRRRRT should do 25x10 total damage to ground target");
   expect(!state.units.includes(splashEnemy), "A-10 splash should hit nearby enemy");
   expect(splashFriendly.hp === 350, "A-10 splash should hit nearby friendly");
 
