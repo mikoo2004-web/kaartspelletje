@@ -56,9 +56,11 @@ const keywordDefinitions = {
   melee: { label: "Melee", category: "Combat", description: "Deze unit valt enemies aan op hetzelfde vakje. Melee attacks raken flying units normaal niet, behalve als kaarttekst dat specifiek zegt." },
   ranged: { label: "Ranged", category: "Combat", description: "Deze unit kan enemies binnen zijn range aanvallen. Ranged attacks kunnen meestal flying units raken, maar kunnen niet door andere units heen schieten zonder pierce." },
   "multi-hit": { label: "Multi-hit", category: "Combat", description: "Deze attack bestaat uit meerdere losse hits. Elke hit wordt apart verwerkt." },
-  splash: { label: "Splash", category: "Combat", description: "Deze aanval raakt meerdere units of een gebied rondom het target." },
+  "stack-damage": { label: "Stack Damage", category: "Combat", description: "Een aanval of ability met Stack Damage raakt alle units op het gekozen vakje." },
+  "area-damage": { label: "Area Damage", category: "Combat", description: "Een aanval of ability met Area Damage raakt het gekozen vakje en aangrenzende vakjes, afhankelijk van de kaarttekst." },
   siege: { label: "Siege", category: "Combat", description: "Zware lange-afstandsunit met trage beweging en krachtige line attacks." },
   "line-attack": { label: "Line attack", category: "Combat", description: "Deze aanval mag alleen in een rechte horizontale of verticale lijn." },
+  "line-shot-through-units": { label: "Line shot through units", category: "Combat", description: "Deze siege attack mag door units heen schieten, maar telt niet als Pierce en geeft dit voordeel niet aan andere attacks." },
   "anti-building": { label: "Anti-building", category: "Combat", description: "Deze kaart is extra sterk tegen buildings." },
   "anti-air": { label: "Anti-air", category: "Combat", description: "Deze kaart is extra sterk tegen flying units." },
   "ground-only": { label: "Ground-only", category: "Combat", description: "Deze attack kan flying units niet raken." },
@@ -326,7 +328,8 @@ function getCardKeywords(card) {
     ["summon", "summon"],
     ["token", "token"],
     ["flying", "flying"],
-    ["splash", "splash"],
+    ["area damage", "area-damage"],
+    ["stack damage", "stack-damage"],
     ["hook", "hook"],
     ["building", "building"],
     ["territory", "territory"],
@@ -1256,7 +1259,11 @@ export function getValidAbilityTargets(unit) {
     const targets = [];
     for (let y = 0; y < state.boardRows; y += 1) {
       for (let x = 0; x < state.boardCols; x += 1) {
-        if (distance(unit, { x, y }) === 1 && !unitsAt(x, y).length) targets.push({ x, y });
+        if (distance(unit, { x, y }) > 1) continue;
+        const blockers = unitsAt(x, y).filter((candidate) =>
+          candidate.type === "building" || candidate.unitId !== unit.unitId && candidate.owner !== unit.owner
+        );
+        if (!blockers.length) targets.push({ x, y });
       }
     }
     return targets;
@@ -1327,7 +1334,11 @@ export function getValidSpellTargets(card) {
     return targets;
   }
   if (card.id === "sniper-scope") {
-    return state.units.filter((unit) => unit.owner === active && unit.type !== "base" && unit.tags?.includes("ranged"));
+    return state.units.filter((unit) =>
+      unit.owner === active
+      && unit.type !== "base"
+      && unit.attacks?.some((attack) => attack.name === "ranged")
+    );
   }
   return [];
 }
