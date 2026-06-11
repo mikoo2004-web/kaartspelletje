@@ -23,6 +23,7 @@ const tests = [
   ["gustav", "Test Schwerer Gustav", () => runOne("Schwerer Gustav", testGustav)],
   ["medusa", "Test Medusa", () => runOne("Medusa", testMedusa)],
   ["a10", "Test A-10", () => runOne("A-10 Thunderbolt", testA10)],
+  ["stack-area", "Test Stack/Area/True Bunker", () => runOne("Stack/Area/True Bunker", testStackAreaTrueBunker)],
   ["abilities", "Test abilities", () => runOne("Abilities", testAbilities)]
 ];
 
@@ -806,7 +807,7 @@ function testA10() {
   expect(attackUnit(a10, groundTarget), "A-10 should attack ground target at range 2");
   expect(groundTarget.shield === 0 && groundTarget.hp === 100, "BRRRRT should do 25x10 total damage to ground target");
   expect(!state.units.includes(areaEnemy), "A-10 Area Damage should hit nearby enemy after BRRRRT");
-  expect(areaFriendly.hp === 350, "A-10 Area Damage should hit nearby friendly after BRRRRT");
+  expect(areaFriendly.hp === 400, "A-10 Area Damage should not hit nearby friendly unless card text says so");
 
   clearNonBases();
   const airA10 = addUnit("a-10-thunderbolt", 1, 4, 4);
@@ -824,6 +825,86 @@ function testA10() {
   expect(attackUnit(groundedA10, groundedFlyingTarget), "A-10 should use BRRRRT on grounded flying targets");
   expect(groundedFlyingTarget.shield === 0 && groundedFlyingTarget.hp === 150, "grounded flying target should take BRRRRT multi-hit damage");
   expect(!state.units.includes(groundedNearby), "grounded flying target should trigger A-10 Area Damage");
+}
+
+function testStackAreaTrueBunker() {
+  clearNonBases();
+  const junkrat = addUnit("junkrat", 1, 4, 4);
+  const junkTargetA = addUnit("pam", 2, 4, 3);
+  const junkTargetB = addUnit("mercy", 2, 4, 3);
+  expect(attackUnit(junkrat, junkTargetA), "Junkrat should stack-damage a target tile");
+  expect(junkTargetA.hp === 200 && junkTargetB.hp === 200, "Junkrat Stack Damage should hit multiple enemies on the same tile");
+
+  clearNonBases();
+  const jet = addUnit("jet", 1, 4, 4);
+  const jetTargetA = addUnit("pam", 2, 4, 5);
+  const jetTargetB = addUnit("geertje", 2, 4, 5);
+  expect(attackUnit(jet, jetTargetA), "Jet should stack-damage a target tile");
+  expect(jetTargetA.hp === 350 && jetTargetB.hp === 300, "Jet Stack Damage should hit all enemies on the target tile");
+
+  clearNonBases();
+  const gooier = addUnit("bom-gooier", 1, 4, 4);
+  const gooierTargetA = addUnit("pam", 2, 4, 5);
+  const gooierTargetB = addUnit("geertje", 2, 4, 5);
+  expect(attackUnit(gooier, gooierTargetA), "Bom Gooier should stack-damage a target tile");
+  expect(gooierTargetA.hp === 250 && gooierTargetB.hp === 200, "Bom Gooier Stack Damage should hit multiple enemies");
+
+  clearNonBases();
+  const alchemist = addUnit("alchemist", 1, 4, 4);
+  const alchemistTargetA = addUnit("pam", 2, 4, 5);
+  const alchemistTargetB = addUnit("geertje", 2, 4, 5);
+  expect(attackUnit(alchemist, alchemistTargetA), "Alchemist should stack-damage a target tile");
+  expect(alchemistTargetA.hp === 325 && alchemistTargetB.hp === 275, "Alchemist Stack Damage should hit multiple enemies");
+
+  clearNonBases();
+  const gustav = addUnit("schwerer-gustav", 1, 4, 4);
+  const gustavMain = addUnit("pam", 2, 4, 2);
+  const gustavStack = addUnit("geertje", 2, 4, 2);
+  const gustavAdjacent = addUnit("pam", 2, 5, 2);
+  expect(attackUnit(gustav, gustavMain), "Gustav should fire at straight-line range 2");
+  expect(!state.units.includes(gustavMain), "Gustav main target should take 400 direct damage");
+  expect(gustavStack.hp === 150 && gustavAdjacent.hp === 200, "Gustav Area Damage should hit stacked and adjacent enemies");
+
+  clearNonBases();
+  const sigma = addUnit("sigma", 1, 4, 4);
+  const sigmaMain = addUnit("pam", 2, 4, 5);
+  const sigmaStack = addUnit("geertje", 2, 4, 5);
+  const sigmaAdjacent = addUnit("pam", 2, 5, 5);
+  expect(attackUnit(sigma, sigmaMain), "Sigma should attack a target");
+  expect(sigmaMain.hp === 250 && sigmaStack.hp === 250 && sigmaAdjacent.hp === 300, "Sigma Area Damage should include Stack Damage on each affected tile");
+
+  clearNonBases();
+  const bunker = addUnit("bunker", 2, 4, 5);
+  const protectedSteve = addUnit("steve", 2, 4, 5);
+  protectedSteve.insideBuildingId = bunker.unitId;
+  const bunkerAttacker = addUnit("junkrat", 1, 4, 4);
+  expect(attackUnit(bunkerAttacker, protectedSteve), "Junkrat should attack a unit inside True Bunker");
+  expect(protectedSteve.hp === 300 && protectedSteve.shield === 50, "Bunker True Bunker should protect the unit from Stack Damage");
+  expect(bunker.hp === 500, "Bunker should catch the Stack Damage");
+
+  clearNonBases();
+  const wallWrecker = addUnit("wall-wrecker", 2, 4, 4);
+  const wallPassenger = addUnit("steve", 2, 4, 4);
+  wallPassenger.insideBuildingId = wallWrecker.unitId;
+  const bomber = addUnit("bomber", 1, 4, 4);
+  expect(attackUnit(bomber, wallWrecker), "Bomber should area-attack Wall Wrecker");
+  expect(wallPassenger.hp === 300 && wallPassenger.shield === 50, "Wall Wrecker True Bunker should protect passengers from Area Damage");
+  expect(wallWrecker.hp === 300, "Wall Wrecker should catch Area Damage plus Bomber anti-building bonus");
+
+  clearNonBases();
+  const orisaBarrier = addUnit("orisa-barrier", 2, 4, 4);
+  const unprotectedSteve = addUnit("steve", 2, 4, 4);
+  unprotectedSteve.insideBuildingId = orisaBarrier.unitId;
+  const secondBomber = addUnit("bomber", 1, 4, 4);
+  expect(attackUnit(secondBomber, orisaBarrier), "Bomber should area-attack Orisa Barrier");
+  expect(unprotectedSteve.hp === 200 && unprotectedSteve.shield === 0, "Orisa Barrier should not protect like a True Bunker against Area Damage");
+
+  clearNonBases();
+  const sigmaBarrier = addUnit("sigma-barrier", 2, 4, 4);
+  const sigmaPassenger = addUnit("steve", 2, 4, 4);
+  sigmaPassenger.insideBuildingId = sigmaBarrier.unitId;
+  applyDamage(sigmaPassenger, 100, null, { stackOrAreaDamage: true });
+  expect(sigmaPassenger.hp === 300 && sigmaPassenger.shield === 0, "Sigma Barrier should not block Stack/Area Damage like True Bunker");
 }
 
 function testAbilities() {
