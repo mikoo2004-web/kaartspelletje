@@ -434,13 +434,7 @@ export function removeUnit(unit, killer = null) {
   if (!wasPetrified && unit.cardId === "geertje") {
     spawnSummonNear("turk", unit.owner, unit.x, unit.y);
     spawnSummonNear("marokkaan", unit.owner, unit.x, unit.y);
-    state.units
-      .filter((candidate) => candidate.owner === unit.owner && candidate.cardId === "marokkaan")
-      .forEach((candidate) => {
-        candidate.shield += 200;
-        candidate.baseShield += 200;
-      });
-    addLog("Geertje is dood: friendly Marokkanen krijgen 200 shield.");
+    addLog("Geertje is dood: Turk en Marokkaan worden opgeroepen als er plek is.");
   }
 
   if (!wasPetrified && unit.cardId === "slime-king") {
