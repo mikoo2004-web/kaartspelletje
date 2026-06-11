@@ -479,6 +479,67 @@ function hasRaidBannerBonus(attacker) {
   );
 }
 
+export function hasAreaDamage(source) {
+  if (!source) return false;
+  const card = source.cardId ? cardById[source.cardId] : null;
+  return !!source.areaDamage || !!source.areaRadius || source.tags?.includes("area-damage") || card?.tags?.includes("area-damage");
+}
+
+export function hasStackDamage(source) {
+  if (!source) return false;
+  const card = source.cardId ? cardById[source.cardId] : null;
+  return hasAreaDamage(source) || source.stackDamage || source.tags?.includes("stack-damage") || card?.tags?.includes("stack-damage");
+}
+
+export function isTrueBunker(unit) {
+  return !!unit?.tags?.includes("true-bunker");
+}
+
+function isProtectedByTrueBunker(unit) {
+  if (!unit?.insideBuildingId) return false;
+  return isTrueBunker(getUnit(unit.insideBuildingId));
+}
+
+function stackAreaTargetsOnTile(attacker, x, y, { includeFriendly = false, excludeUnitId = null } = {}) {
+  return unitsAt(x, y).filter((unit) =>
+    unit.type !== "base"
+    && unit.unitId !== attacker?.unitId
+    && unit.unitId !== excludeUnitId
+    && !isProtectedByTrueBunker(unit)
+    && (includeFriendly || unit.owner !== attacker?.owner)
+  );
+}
+
+function stackAreaTargetsAround(attacker, center, radius, { includeFriendly = false, excludeUnitId = null } = {}) {
+  return state.units.slice().filter((unit) =>
+    unit.type !== "base"
+    && unit.unitId !== attacker?.unitId
+    && unit.unitId !== excludeUnitId
+    && !isProtectedByTrueBunker(unit)
+    && distance(unit, center) <= radius
+    && (includeFriendly || unit.owner !== attacker?.owner)
+  );
+}
+
+function canReceiveStackDamageFrom(attacker, target) {
+  if (attacker?.cardId === "bom-gooier" && target.tags?.includes("flying") && !target.statuses.grounded) return false;
+  return true;
+}
+
+function applyAttackHits(attacker, target, attack, damage, hits, options = {}) {
+  let totalDamage = 0;
+  for (let i = 0; i < hits; i += 1) {
+    const beforeX = target.x;
+    const beforeY = target.y;
+    if (attacker.cardId === "shield-breaker") applyShieldBreakerDamage(target, damage, attacker, options);
+    else applyDamage(target, damage, attacker, options);
+    totalDamage += target.lastDamageAmount || 0;
+    if (!getUnit(target.unitId)) break;
+    if (target.x !== beforeX || target.y !== beforeY) break;
+  }
+  return totalDamage;
+}
+
 export function attackUnit(attacker, target) {
   if (!canAttack(attacker, target)) {
     addLog("Deze aanval mag nu niet.");
@@ -522,14 +583,33 @@ export function attackUnit(attacker, target) {
     target.wasAttackedThisTurn = true;
     return true;
   }
+  if ((hasStackDamage(attacker) || hasStackDamage(attack)) && !(hasAreaDamage(attacker) || hasAreaDamage(attack))) {
+    const stackTargets = stackAreaTargetsOnTile(attacker, target.x, target.y);
+    stackTargets.forEach((stackTarget) => {
+      if (!canReceiveStackDamageFrom(attacker, stackTarget)) return;
+      const stackAttack = chooseAttack(attacker, stackTarget) || attack;
+      let stackDamage = stackAttack.damage * (attacker.damageMultiplier || 1);
+      if (hasRaidBannerBonus(attacker)) stackDamage += 50;
+      applyAttackHits(attacker, stackTarget, stackAttack, stackDamage, stackAttack.hits || 1, {
+        ignoreBuildingProtection: stackAttack.ignoresBuildingProtection,
+        attackName: stackAttack.name,
+        stackOrAreaDamage: true
+      });
+      stackTarget.wasAttackedThisTurn = true;
+    });
+    addLog(`${attacker.name} gebruikt Stack Damage op ${stackTargets.length} enemy unit(s) op dit vakje.`);
+    attacker.hasAttackedThisTurn = true;
+    if (attack.cooldown) attacker.attackCooldowns[attack.name] = attack.cooldown + 1;
+    return true;
+  }
   if (attacker.cardId === "bomber") {
-    const areaTargets = state.units.filter((candidate) => candidate.owner !== attacker.owner && candidate.type !== "base" && distance(attacker, candidate) <= 1);
+    const areaTargets = stackAreaTargetsAround(attacker, attacker, 1);
     areaTargets.forEach((candidate) => {
       const areaDamage = candidate.type === "building" ? damage + 125 : damage;
       for (let i = 0; i < hits; i += 1) {
         const beforeX = candidate.x;
         const beforeY = candidate.y;
-        applyDamage(candidate, areaDamage, attacker, { ignoreBuildingProtection: attack.ignoresBuildingProtection, attackName: attack.name, antDamageType: "area" });
+        applyDamage(candidate, areaDamage, attacker, { ignoreBuildingProtection: attack.ignoresBuildingProtection, attackName: attack.name, antDamageType: "area", stackOrAreaDamage: true });
         if (!getUnit(candidate.unitId)) break;
         if (candidate.x !== beforeX || candidate.y !== beforeY) break;
       }
@@ -545,13 +625,12 @@ export function attackUnit(attacker, target) {
       if (target.x !== beforeX || target.y !== beforeY) break;
     }
     if (attacker.cardId === "sigma") {
-      state.units
-        .filter((candidate) => candidate.owner !== attacker.owner && candidate.unitId !== target.unitId && candidate.type !== "base" && rangedDistance(target, candidate) <= 1)
+      stackAreaTargetsAround(attacker, target, 1, { excludeUnitId: target.unitId })
         .forEach((candidate) => {
           for (let i = 0; i < 2; i += 1) {
             const beforeX = candidate.x;
             const beforeY = candidate.y;
-            applyDamage(candidate, 50, attacker, { attackName: "ranged", antDamageType: "area" });
+            applyDamage(candidate, 50, attacker, { attackName: "ranged", antDamageType: "area", stackOrAreaDamage: true });
             if (!getUnit(candidate.unitId)) break;
             if (candidate.x !== beforeX || candidate.y !== beforeY) break;
           }
@@ -645,12 +724,10 @@ function applyA10Attack(attacker, target, attack) {
   }
   if (attack.name === "BRRRRT") {
     addLog("A-10 Thunderbolt raakt omliggende units met 50 Area Damage.");
-    state.units
-      .slice()
-      .filter((unit) => unit.type !== "base" && unit.unitId !== target.unitId && distance(unit, target) <= 1)
+    stackAreaTargetsAround(attacker, target, 1, { excludeUnitId: target.unitId })
       .forEach((unit) => {
         if (!getUnit(unit.unitId)) return;
-        applyDamage(unit, 50, attacker, { attackName: "a10-area", antDamageType: "area", sourceName: "A-10 Area Damage" });
+        applyDamage(unit, 50, attacker, { attackName: "a10-area", antDamageType: "area", sourceName: "A-10 Area Damage", stackOrAreaDamage: true });
         addLog(`${unit.name} krijgt 50 Area Damage van A-10 Thunderbolt.`);
       });
   }
@@ -700,12 +777,10 @@ function applyGustavAttack(attacker, target, hasMainTarget) {
   } else {
     addLog("Schwerer Gustav vuurt op een leeg vakje en veroorzaakt 200 Area Damage rondom dat vakje.");
   }
-  state.units
-    .slice()
-    .filter((unit) => unit.type !== "base" && distance(unit, impact) <= 1 && unit.unitId !== target.unitId)
+  stackAreaTargetsAround(attacker, impact, 1, { includeFriendly: true, excludeUnitId: target.unitId })
     .forEach((unit) => {
       if (!getUnit(unit.unitId)) return;
-      applyDamage(unit, 200, attacker, { attackName: "siege-area", antDamageType: "area", sourceName: "Schwerer Gustav Area Damage" });
+      applyDamage(unit, 200, attacker, { attackName: "siege-area", antDamageType: "area", sourceName: "Schwerer Gustav Area Damage", stackOrAreaDamage: true });
       addLog(`${unit.name} krijgt 200 Area Damage.`);
     });
 }
@@ -740,9 +815,13 @@ export function applyDamage(target, amount, attacker = null, options = {}) {
   if (target.insideBuildingId && !options.ignoreBuildingProtection) {
     const building = getUnit(target.insideBuildingId);
     if (building) {
-      applyDamage(building, amount, attacker, { ignoreBuildingProtection: true });
-      amount = isBunkerShield(building) ? 0 : Math.floor(amount / 2);
-      addLog(`${target.name} zit in ${building.name}: ${building.name} krijgt ${amount === 0 ? "alle" : "volle"} damage, unit krijgt ${amount}.`);
+      if (options.stackOrAreaDamage && !isTrueBunker(building)) {
+        addLog(`${target.name} zit in ${building.name}, maar dit is geen True Bunker: Stack/Area Damage raakt de unit.`);
+      } else {
+        applyDamage(building, amount, attacker, { ignoreBuildingProtection: true });
+        amount = isTrueBunker(building) || isBunkerShield(building) ? 0 : Math.floor(amount / 2);
+        addLog(`${target.name} zit in ${building.name}: ${building.name} krijgt ${amount === 0 ? "alle" : "volle"} damage, unit krijgt ${amount}.`);
+      }
     }
   }
   if (amount <= 0) return;
