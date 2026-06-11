@@ -128,15 +128,14 @@ function useWantedLevel(x, y) {
 }
 
 function useSniperScope(target) {
-  if (!target || target.owner !== state.activePlayer || !target.tags?.includes("ranged")) {
-    return fail("Sniper Scope moet op een friendly ranged unit.");
+  const rangedAttacks = target?.attacks?.filter((attack) => attack.name === "ranged") || [];
+  if (!target || target.owner !== state.activePlayer || !rangedAttacks.length) {
+    return fail("Sniper Scope moet op een friendly unit met een echte ranged attack.");
   }
   if (!target.tags.includes("pierce")) target.tags.push("pierce");
-  target.attacks
-    .filter((attack) => attack.name === "ranged")
-    .forEach((attack) => {
-      attack.range = (attack.range || 0) + 1;
-    });
+  rangedAttacks.forEach((attack) => {
+    attack.range = (attack.range || 0) + 1;
+  });
   addLog(`${target.name} krijgt +1 range en Pierce Shot.`);
   return true;
 }
@@ -321,7 +320,8 @@ function useDemonDash(unit, target = null) {
     return fail("Demon Dash kan niet eindigen op een eigen unit.");
   }
   const path = getStraightPath(unit.x, unit.y, target.x, target.y);
-  const enemiesInPath = path.flatMap((spot) =>
+  const dashTiles = [{ x: unit.x, y: unit.y }, ...path];
+  const enemiesInPath = dashTiles.flatMap((spot) =>
     unitsAt(spot.x, spot.y).filter((candidate) => candidate.owner !== unit.owner && candidate.type !== "base")
   );
   unit.x = target.x;
@@ -384,13 +384,16 @@ function useElPrimoJump(unit, target) {
 
 function useOrisaBarrier(unit, target = null) {
   if (unit.cooldownRemaining > 0) return fail("Orisa barrier zit nog op cooldown.");
-  if (!target || typeof target.x !== "number" || typeof target.y !== "number" || distance(unit, target) !== 1) {
-    return fail("Orisa Barrier moet op een leeg vakje binnen range 1.");
+  if (!target || typeof target.x !== "number" || typeof target.y !== "number" || distance(unit, target) > 1) {
+    return fail("Orisa Barrier moet op Orisa of een vakje binnen range 1.");
   }
   if (target.x < 0 || target.x >= state.boardCols || target.y < 0 || target.y >= state.boardRows) {
     return fail("Orisa Barrier moet binnen het bord.");
   }
-  if (unitsAt(target.x, target.y).length) return fail("Orisa Barrier moet op een leeg vakje.");
+  const blockers = unitsAt(target.x, target.y).filter((candidate) =>
+    candidate.type === "building" || candidate.unitId !== unit.unitId && candidate.owner !== unit.owner
+  );
+  if (blockers.length) return fail("Orisa Barrier kan hier niet geplaatst worden.");
   const card = cardById["orisa-barrier"];
   state.units.push(createUnit(card, unit.owner, target.x, target.y));
   unit.cooldownRemaining = 6;
@@ -478,6 +481,10 @@ export function useMercyResurrect(unit) {
   if (!spot) return fail("Geen plek naast Mercy.");
   const revived = createUnit(cardById[dead.cardId], unit.owner, spot.x, spot.y);
   revived.hp = Math.min(300, revived.maxHp);
+  revived.shield = 0;
+  revived.baseShield = 0;
+  revived.attachedShield = 0;
+  revived.maxAttachedShield = 0;
   state.units.push(revived);
   player.graveyard = player.graveyard.filter((grave) => grave.unitId !== dead.unitId);
   unit.mercyReviveCooldownRemaining = 7;
