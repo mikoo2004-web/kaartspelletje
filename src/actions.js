@@ -13,6 +13,7 @@ export function rangedDistance(a, b) {
 export function hasLineOfSight(attacker, target) {
   if (!attacker || !target) return false;
   if (attacker.tags?.includes("pierce")) return true;
+  if (attacker.cardId === "schwerer-gustav") return true;
   const dx = target.x - attacker.x;
   const dy = target.y - attacker.y;
   if (dx === 0 && dy === 0) return true;
@@ -354,7 +355,6 @@ export function canAttack(attacker, target) {
   if (isSmilerUntargetableBy(attacker, target)) return false;
   const attack = chooseAttack(attacker, target);
   if (!attack) return false;
-  if (attacker.cardId === "schwerer-gustav" && !isValidGustavTarget(attacker, target.x, target.y)) return false;
   const sameTileOccupants = unitsAt(attacker.x, attacker.y);
   const isContested = sameTileOccupants.some((unit) => unit.owner === attacker.owner) && sameTileOccupants.some((unit) => unit.owner !== attacker.owner);
   if (isContested && attack.name !== "melee" && distance(attacker, target) > 0) return false;
@@ -366,6 +366,7 @@ export function canAttack(attacker, target) {
     if (building?.cardId === "wall-wrecker") return false;
   }
   if (target.type === "base") return canAttackBase(attacker, target, attack);
+  if (attacker.cardId === "schwerer-gustav" && !isValidGustavTarget(attacker, target.x, target.y)) return false;
   if (attacker.cardId === "knight" && attack.lunge) {
     if (!canKnightLunge(attacker, target)) return false;
   }
@@ -410,6 +411,7 @@ export function canAttackBase(attacker, target, attack = chooseAttack(attacker, 
   if (attack.name === "melee" || (!attacker.tags?.includes("ranged") && attacker.tags?.includes("melee"))) {
     return attacker.y === row && attacker.x === column;
   }
+  if (attacker.cardId === "schwerer-gustav") return isValidGustavTarget(attacker, column, row);
   return rangedDistance(attacker, { x: column, y: row }) <= attack.range && hasLineOfSight(attacker, { x: column, y: row });
 }
 
@@ -436,7 +438,7 @@ export function chooseAttack(attacker, target) {
       ? { name: "air", damage: 150, range: 2 }
       : { name: "BRRRRT", damage: 25, range: 2, hits: 10 };
   }
-  if (attacker.cardId === "schwerer-gustav") return { name: "siege", damage: 400, range: 5, minRange: 2, splashDamage: 200, splashRadius: 1, lineOnly: true };
+  if (attacker.cardId === "schwerer-gustav") return { name: "siege", damage: 400, range: 5, minRange: 2, areaDamage: 200, areaRadius: 1, lineOnly: true, ignoresLineBlockers: true };
   if (attacker.cardId === "jet") return { name: "ranged", damage: target.tags?.includes("flying") ? 350 : 50, range: 1 };
   if (attacker.cardId === "wall-wrecker" && (target.tags?.includes("bunker") || target.role === "bunker")) return { name: "melee", damage: 150, range: 0, hits: 2 };
   if (attacker.cardId === "wall-wrecker" && target.type === "building") return { name: "melee", damage: 150, range: 0 };
@@ -451,7 +453,7 @@ export function chooseAttack(attacker, target) {
   }
   if (attacker.cardId === "knight" && distance(attacker, target) === 1) return { name: "melee", damage: 250, range: 1, lunge: true };
   if (attacker.cardId === "assassin" && target.wasAttackedThisTurn) return { name: "melee", damage: 400, range: 1 };
-  if (attacker.cardId === "bomber") return { name: "melee", damage: 100, range: 0, hits: 2, splashRadius: 1 };
+  if (attacker.cardId === "bomber") return { name: "melee", damage: 100, range: 0, hits: 2, areaRadius: 1 };
   if (attacker.cardId === "sigma") return { name: "ranged", damage: 75, range: 1, hits: 2 };
   if (attacker.cardId === "collete") {
     const damage = 50 + Math.floor(Math.max(0, target.hp || 0) * 0.33);
@@ -472,7 +474,8 @@ function hasRaidBannerBonus(attacker) {
     unit.owner === attacker.owner
     && unit.cardId === "pillager-captain"
     && unit.unitId !== attacker.unitId
-    && rangedDistance(unit, attacker) <= 1
+    && Math.abs(unit.x - attacker.x) <= 1
+    && Math.abs(unit.y - attacker.y) <= 1
   );
 }
 
@@ -502,6 +505,12 @@ export function attackUnit(attacker, target) {
   }
   let totalDamageForHealing = 0;
   if (attacker.cardId === "schwerer-gustav") {
+    if (target.type === "base") {
+      applyDamage(target, 400, attacker, { attackName: "siege" });
+      addLog("Schwerer Gustav vuurt op de base voor 400 damage.");
+      attacker.hasAttackedThisTurn = true;
+      return true;
+    }
     applyGustavAttack(attacker, target, true);
     attacker.hasAttackedThisTurn = true;
     if (attack.cooldown) attacker.attackCooldowns[attack.name] = attack.cooldown + 1;
@@ -514,13 +523,13 @@ export function attackUnit(attacker, target) {
     return true;
   }
   if (attacker.cardId === "bomber") {
-    const splashTargets = state.units.filter((candidate) => candidate.owner !== attacker.owner && candidate.type !== "base" && distance(attacker, candidate) <= 1);
-    splashTargets.forEach((candidate) => {
-      const splashDamage = candidate.type === "building" ? damage + 125 : damage;
+    const areaTargets = state.units.filter((candidate) => candidate.owner !== attacker.owner && candidate.type !== "base" && distance(attacker, candidate) <= 1);
+    areaTargets.forEach((candidate) => {
+      const areaDamage = candidate.type === "building" ? damage + 125 : damage;
       for (let i = 0; i < hits; i += 1) {
         const beforeX = candidate.x;
         const beforeY = candidate.y;
-        applyDamage(candidate, splashDamage, attacker, { ignoreBuildingProtection: attack.ignoresBuildingProtection, attackName: attack.name, antDamageType: "splash" });
+        applyDamage(candidate, areaDamage, attacker, { ignoreBuildingProtection: attack.ignoresBuildingProtection, attackName: attack.name, antDamageType: "area" });
         if (!getUnit(candidate.unitId)) break;
         if (candidate.x !== beforeX || candidate.y !== beforeY) break;
       }
@@ -542,12 +551,12 @@ export function attackUnit(attacker, target) {
           for (let i = 0; i < 2; i += 1) {
             const beforeX = candidate.x;
             const beforeY = candidate.y;
-            applyDamage(candidate, 50, attacker, { attackName: "ranged", antDamageType: "splash" });
+            applyDamage(candidate, 50, attacker, { attackName: "ranged", antDamageType: "area" });
             if (!getUnit(candidate.unitId)) break;
             if (candidate.x !== beforeX || candidate.y !== beforeY) break;
           }
         });
-      addLog("Sigma Gravity Splash raakt enemy units binnen range 1 van het geraakte target voor 50 x2.");
+      addLog("Sigma Gravity Area Damage raakt enemy units binnen range 1 van het geraakte target voor 50 x2.");
     }
   }
   addLog(`${attacker.name} doet ${damage}${hits > 1 ? ` x${hits}` : ""} damage op ${target.name}.`);
@@ -570,7 +579,7 @@ export function attackUnit(attacker, target) {
     attacker.hasAttackedThisTurn = false;
     addLog("Knight maakt een Chain Kill en mag opnieuw aanvallen.");
   }
-  if (attacker.cardId === "geertje") {
+  if (attacker.cardId === "geertje" && totalDamageForHealing > 0) {
     const summonId = Math.random() < 0.5 ? "turk" : "marokkaan";
     const summon = spawnSummonNear(summonId, attacker.owner, target.x, target.y);
     if (summon) addLog(`${attacker.name} markeert ${target.name} en roept hulp op.`);
@@ -634,15 +643,17 @@ function applyA10Attack(attacker, target, attack) {
     if (!getUnit(target.unitId)) break;
     if (target.x !== beforeX || target.y !== beforeY) break;
   }
-  addLog("A-10 Thunderbolt raakt omliggende units met 50 splash damage.");
-  state.units
-    .slice()
-    .filter((unit) => unit.type !== "base" && unit.unitId !== target.unitId && distance(unit, target) <= 1)
-    .forEach((unit) => {
-      if (!getUnit(unit.unitId)) return;
-      applyDamage(unit, 50, attacker, { attackName: "a10-splash", antDamageType: "splash", sourceName: "A-10 splash" });
-      addLog(`${unit.name} krijgt 50 splash damage van A-10 Thunderbolt.`);
-    });
+  if (attack.name === "BRRRRT") {
+    addLog("A-10 Thunderbolt raakt omliggende units met 50 Area Damage.");
+    state.units
+      .slice()
+      .filter((unit) => unit.type !== "base" && unit.unitId !== target.unitId && distance(unit, target) <= 1)
+      .forEach((unit) => {
+        if (!getUnit(unit.unitId)) return;
+        applyDamage(unit, 50, attacker, { attackName: "a10-area", antDamageType: "area", sourceName: "A-10 Area Damage" });
+        addLog(`${unit.name} krijgt 50 Area Damage van A-10 Thunderbolt.`);
+      });
+  }
 }
 
 export function isValidGustavTarget(unit, x, y) {
@@ -687,15 +698,15 @@ function applyGustavAttack(attacker, target, hasMainTarget) {
     addLog(`Schwerer Gustav vuurt op ${target.name} voor 400 damage.`);
     applyDamage(target, 400, attacker, { attackName: "siege" });
   } else {
-    addLog("Schwerer Gustav vuurt op een leeg vakje en veroorzaakt 200 splash damage rondom dat vakje.");
+    addLog("Schwerer Gustav vuurt op een leeg vakje en veroorzaakt 200 Area Damage rondom dat vakje.");
   }
   state.units
     .slice()
     .filter((unit) => unit.type !== "base" && distance(unit, impact) <= 1 && unit.unitId !== target.unitId)
     .forEach((unit) => {
       if (!getUnit(unit.unitId)) return;
-      applyDamage(unit, 200, attacker, { attackName: "siege-splash", antDamageType: "splash", sourceName: "Schwerer Gustav splash" });
-      addLog(`${unit.name} krijgt 200 splash damage.`);
+      applyDamage(unit, 200, attacker, { attackName: "siege-area", antDamageType: "area", sourceName: "Schwerer Gustav Area Damage" });
+      addLog(`${unit.name} krijgt 200 Area Damage.`);
     });
 }
 
@@ -786,7 +797,7 @@ function damageAntStack(target, amount, attacker = null, options = {}) {
   if (!isAntToken(target) || amount <= 0) return;
   const sourceName = options.sourceName || "damage";
   const type = options.antDamageType || "singleHit";
-  const killed = type === "splash" || type === "area" || type === "deathExplosion"
+  const killed = type === "area" || type === "deathExplosion"
     ? Math.floor(amount / 10)
     : type === "stepOnAnt"
       ? 1
