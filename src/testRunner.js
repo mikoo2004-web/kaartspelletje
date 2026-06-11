@@ -168,11 +168,19 @@ function testRangedCombat() {
 
 function testJunkrat() {
   clearNonBases();
-  const attacker = addUnit("junkrat", 1, 4, 4);
-  const target = addUnit("steve", 2, 4, 4);
-  setEnergy(1, 2);
-  expect(attackUnit(attacker, target), "Junkrat should attack an enemy on the same tile");
-  expect(target.shield === 0 && target.hp === 100, "Junkrat range 0 should deal 50 x5 damage");
+  const cases = [
+    { distance: 0, targetX: 4, targetY: 4, expectedHp: 150 },
+    { distance: 1, targetX: 4, targetY: 3, expectedHp: 200 },
+    { distance: 2, targetX: 4, targetY: 2, expectedHp: 250 },
+    { distance: 3, targetX: 4, targetY: 1, expectedHp: 350 }
+  ];
+  cases.forEach((testCase) => {
+    clearNonBases();
+    const attacker = addUnit("junkrat", 1, 4, 4);
+    const target = addUnit("pam", 2, testCase.targetX, testCase.targetY);
+    expect(attackUnit(attacker, target), `Junkrat should attack at distance ${testCase.distance}`);
+    expect(target.hp === testCase.expectedHp, `Junkrat distance ${testCase.distance} damage should match card text`);
+  });
 }
 
 function testBuildings() {
@@ -357,6 +365,33 @@ function testBalancePatch() {
   expect(canAttack(pierceShooter, pierceTarget), "Big Ben should pierce through units");
 
   clearNonBases();
+  const meleeScopeTarget = addUnit("steve", 1, 4, 4);
+  expect(!useSpell(cardById["sniper-scope"], 4, 4, meleeScopeTarget.unitId), "Sniper Scope should fail on melee units");
+  const fakeRanged = addUnit("steve", 1, 5, 4);
+  fakeRanged.tags.push("ranged");
+  expect(!useSpell(cardById["sniper-scope"], 5, 4, fakeRanged.unitId), "Sniper Scope should fail on units with ranged tag but no ranged attack");
+  const scoped = addUnit("roadhog", 1, 4, 4);
+  const scopedTarget = addUnit("pam", 2, 4, 2);
+  expect(!canAttack(scoped, scopedTarget), "Roadhog ranged attack should not reach range 2 before Sniper Scope");
+  expect(useSpell(cardById["sniper-scope"], 4, 4, scoped.unitId), "Sniper Scope should work on a true ranged attack");
+  expect(canAttack(scoped, scopedTarget), "Sniper Scope should increase normal ranged attack range by 1");
+
+  clearNonBases();
+  addUnit("pillager-captain", 1, 4, 4);
+  const diagonalPillager = addUnit("pillager", 1, 5, 5);
+  const diagonalTarget = addUnit("pam", 2, 5, 6);
+  expect(attackUnit(diagonalPillager, diagonalTarget), "Pillager in captain 3x3 diagonal should attack");
+  expect(diagonalTarget.hp === 275, "Raid Banner should give +50 damage in diagonals");
+  const farPillager = addUnit("pillager", 1, 7, 7);
+  const farPillagerTarget = addUnit("pam", 2, 7, 6);
+  expect(attackUnit(farPillager, farPillagerTarget), "Pillager outside captain 3x3 should attack");
+  expect(farPillagerTarget.hp === 325, "Raid Banner should not buff units outside 3x3");
+  const enemyPillager = addUnit("pillager", 2, 3, 3);
+  const enemyPillagerTarget = addUnit("pam", 1, 3, 2);
+  expect(attackUnit(enemyPillager, enemyPillagerTarget), "Enemy token near captain should attack");
+  expect(enemyPillagerTarget.hp === 325, "Raid Banner should not buff enemy tokens");
+
+  clearNonBases();
   const shielded = addUnit("miner", 2, 4, 4);
   const shieldAttacker = addUnit("trump", 1, 4, 4);
   expect(attackUnit(shieldAttacker, shielded), "single hit should attack shielded unit");
@@ -412,6 +447,17 @@ function testBalancePatch() {
   expect(enderman.hp === 450 && (enderman.x !== 4 || enderman.y !== 4), "Enderman should dodge ranged damage and teleport");
 
   clearNonBases();
+  const dodgedGeertje = addUnit("geertje", 1, 4, 5);
+  const dodgingEnderman = addUnit("enderman", 2, 4, 4);
+  expect(attackUnit(dodgedGeertje, dodgingEnderman), "Geertje attack should be attempted on Enderman");
+  expect(!state.units.some((unit) => unit.owner === 1 && (unit.cardId === "turk" || unit.cardId === "marokkaan")), "Geertje should not summon when attack deals 0 damage");
+  clearNonBases();
+  const hitGeertje = addUnit("geertje", 1, 4, 4);
+  const hitTarget = addUnit("pam", 2, 4, 5);
+  expect(attackUnit(hitGeertje, hitTarget), "Geertje should hit a normal target");
+  expect(state.units.some((unit) => unit.owner === 1 && (unit.cardId === "turk" || unit.cardId === "marokkaan")), "Geertje should summon after a hit");
+
+  clearNonBases();
   const closeEnderman = addUnit("enderman", 2, 4, 4);
   const closeRanged = addUnit("trump", 1, 4, 4);
   expect(attackUnit(closeRanged, closeEnderman), "ranged unit on same tile should be able to hit Enderman");
@@ -430,11 +476,14 @@ function testBalancePatch() {
   expect(eye.attacks.some((attack) => attack.name === "melee" && attack.damage === 250), "Second phase should add 100 melee damage");
   applyDamage(eye, 50);
   expect(eye.speed === 3 && eye.attacks.some((attack) => attack.name === "melee" && attack.damage === 250), "Second phase should only activate once");
+  const dashStartEnemy = addUnit("turk", 2, 4, 4);
+  const dashStartFriendly = addUnit("turk", 1, 4, 4);
   const dashTarget = addUnit("steve", 2, 7, 4);
   const dashMiddleGround = addUnit("pam", 2, 5, 4);
   const dashMiddleBuilding = addUnit("bunker", 2, 6, 4);
   setEnergy(1, 6);
   expect(activateAbility(eye, { x: 7, y: 4 }), "Demon Dash should move in a straight line up to 3 tiles");
+  expect(!state.units.includes(dashStartEnemy) && state.units.includes(dashStartFriendly), "Demon Dash should hit enemies on the start tile but not friendlies");
   expect(eye.x === 7 && eye.y === 4 && dashTarget.shield === 0 && dashTarget.hp === 300, "Demon Dash should break shield without same-hit overflow");
   expect(dashMiddleGround.hp === 200 && dashMiddleBuilding.hp === 500, "Demon Dash should hit every enemy unit or building in its path");
 
@@ -464,13 +513,13 @@ function testBalancePatch() {
   expect(canAttack(cop, copTarget), "GTA Cop should have range 2");
 
   clearNonBases();
-  const sigmaSplash = addUnit("sigma", 1, 4, 4);
-  const splashTarget = addUnit("pam", 2, 4, 5);
-  const nearSplash = addUnit("turk", 2, 5, 5);
+  const sigmaArea = addUnit("sigma", 1, 4, 4);
+  const areaTarget = addUnit("pam", 2, 4, 5);
+  const nearArea = addUnit("turk", 2, 5, 5);
   const farFromTarget = addUnit("turk", 2, 6, 4);
-  expect(attackUnit(sigmaSplash, splashTarget), "Sigma should attack chosen target");
-  expect(!state.units.includes(nearSplash), "Sigma splash should hit enemies within range 1 of the target");
-  expect(state.units.includes(farFromTarget), "Sigma splash should not hit enemies only near Sigma but not near the target");
+  expect(attackUnit(sigmaArea, areaTarget), "Sigma should attack chosen target");
+  expect(!state.units.includes(nearArea), "Sigma Area Damage should hit enemies within range 1 of the target");
+  expect(state.units.includes(farFromTarget), "Sigma Area Damage should not hit enemies only near Sigma but not near the target");
 
   clearNonBases();
   const electro = addUnit("electro-giant", 2, 4, 4);
@@ -641,11 +690,11 @@ function testAnts() {
   expect(attackUnit(pam, pamTarget), "Pam-style multi-hit should attack Mier(en)");
   expect(pamTarget.antCount === 7, "3 multi-hit hits should kill 3 ants");
 
-  const splashAnt = spawnAntToken(2, 6, 6, 10);
-  applyDamage(splashAnt, 50, null, { antDamageType: "splash", sourceName: "test splash" });
-  expect(splashAnt.antCount === 5, "50 splash damage should kill 5 ants");
-  applyDamage(splashAnt, 200, null, { antDamageType: "splash", sourceName: "test splash" });
-  expect(!state.units.includes(splashAnt), "200 splash damage should remove remaining ant stack");
+  const areaAnt = spawnAntToken(2, 6, 6, 10);
+  applyDamage(areaAnt, 50, null, { antDamageType: "area", sourceName: "test Area Damage" });
+  expect(areaAnt.antCount === 5, "50 Area Damage should kill 5 ants");
+  applyDamage(areaAnt, 200, null, { antDamageType: "area", sourceName: "test Area Damage" });
+  expect(!state.units.includes(areaAnt), "200 Area Damage should remove remaining ant stack");
 
   clearNonBases();
   const runner = spawnAntToken(1, 0, 0, 1);
@@ -675,7 +724,8 @@ function testGustav() {
   const rangeTwo = addUnit("steve", 2, 4, 2);
   const diagonal = addUnit("steve", 2, 5, 3);
   expect(!canAttack(gustav, rangeOne), "Schwerer Gustav should not attack range 1");
-  expect(!canAttack(gustav, rangeTwo), "Schwerer Gustav should not shoot through a range-1 blocker");
+  expect(canAttack(gustav, rangeTwo), "Schwerer Gustav should shoot through unit blockers with siege line shot");
+  expect(!gustav.tags.includes("pierce"), "Schwerer Gustav should not have the normal pierce tag");
   expect(!canAttack(gustav, diagonal), "Schwerer Gustav should not attack diagonal targets");
 
   clearNonBases();
@@ -684,20 +734,27 @@ function testGustav() {
   expect(canAttack(clearGustav, clearRangeTwo), "Schwerer Gustav should attack unblocked straight-line range 2");
 
   clearNonBases();
-  const splashGustav = addUnit("schwerer-gustav", 1, 4, 4);
-  const splashTarget = addUnit("steve", 2, 4, 2);
-  const splashFriend = addUnit("pam", 1, 5, 2);
-  const splashEnemy = addUnit("turk", 2, 3, 2);
-  expect(attackUnit(splashGustav, splashTarget), "Schwerer Gustav should fire on unit target");
-  expect(splashTarget.shield === 0 && splashTarget.hp === 300, "main target should take one 400-damage hit, with shield blocking without same-hit overflow");
-  expect(splashFriend.hp === 200, "friendly unit near impact should take 200 splash");
-  expect(!state.units.includes(splashEnemy), "enemy token near impact should take 200 splash and die");
+  const areaGustav = addUnit("schwerer-gustav", 1, 4, 4);
+  const areaTarget = addUnit("steve", 2, 4, 2);
+  const areaFriend = addUnit("pam", 1, 5, 2);
+  const areaEnemy = addUnit("turk", 2, 3, 2);
+  expect(attackUnit(areaGustav, areaTarget), "Schwerer Gustav should fire on unit target");
+  expect(areaTarget.shield === 0 && areaTarget.hp === 300, "main target should take one 400-damage hit, with shield blocking without same-hit overflow");
+  expect(areaFriend.hp === 200, "friendly unit near impact should take 200 Area Damage");
+  expect(!state.units.includes(areaEnemy), "enemy token near impact should take 200 Area Damage and die");
 
   clearNonBases();
   const emptyShotGustav = addUnit("schwerer-gustav", 1, 4, 4);
-  const emptySplash = addUnit("steve", 2, 7, 4);
+  const emptyArea = addUnit("steve", 2, 7, 4);
   expect(attackGustavTile(emptyShotGustav, 6, 4), "Schwerer Gustav should fire at an empty valid tile");
-  expect(emptySplash.shield === 0 && emptySplash.hp === 300, "empty tile shot should deal one 200 splash hit, with shield blocking without same-hit overflow");
+  expect(emptyArea.shield === 0 && emptyArea.hp === 300, "empty tile shot should deal one 200 Area Damage hit, with shield blocking without same-hit overflow");
+
+  clearNonBases();
+  const baseGustav = addUnit("schwerer-gustav", 1, 4, 4);
+  const p2Base = getBase(2);
+  const baseHpBefore = p2Base.hp;
+  expect(attackUnit(baseGustav, makeBaseAttackTarget(2, 4)), "Schwerer Gustav should attack base in valid straight range");
+  expect(p2Base.hp === baseHpBefore - 400, "Schwerer Gustav should deal 400 base damage");
 
   clearNonBases();
   const sideTrackGustav = addUnit("schwerer-gustav", 1, 4, 4);
@@ -744,18 +801,29 @@ function testA10() {
   clearNonBases();
   const a10 = addUnit("a-10-thunderbolt", 1, 4, 4);
   const groundTarget = addUnit("steve", 2, 4, 2);
-  const splashEnemy = addUnit("turk", 2, 5, 2);
-  const splashFriendly = addUnit("pam", 1, 3, 2);
+  const areaEnemy = addUnit("turk", 2, 5, 2);
+  const areaFriendly = addUnit("pam", 1, 3, 2);
   expect(attackUnit(a10, groundTarget), "A-10 should attack ground target at range 2");
   expect(groundTarget.shield === 0 && groundTarget.hp === 100, "BRRRRT should do 25x10 total damage to ground target");
-  expect(!state.units.includes(splashEnemy), "A-10 splash should hit nearby enemy");
-  expect(splashFriendly.hp === 350, "A-10 splash should hit nearby friendly");
+  expect(!state.units.includes(areaEnemy), "A-10 Area Damage should hit nearby enemy after BRRRRT");
+  expect(areaFriendly.hp === 350, "A-10 Area Damage should hit nearby friendly after BRRRRT");
 
   clearNonBases();
   const airA10 = addUnit("a-10-thunderbolt", 1, 4, 4);
   const flyingTarget = addUnit("jet", 2, 4, 2);
+  const airNearby = addUnit("turk", 2, 5, 2);
   expect(attackUnit(airA10, flyingTarget), "A-10 should attack flying target at range 2");
   expect(flyingTarget.shield === 0 && flyingTarget.hp === 350, "A-10 air attack should be one 150-damage hit, blocked by shield without same-hit overflow");
+  expect(state.units.includes(airNearby) && airNearby.hp === 50, "A-10 air attack should not cause Area Damage");
+
+  clearNonBases();
+  const groundedA10 = addUnit("a-10-thunderbolt", 1, 4, 4);
+  const groundedFlyingTarget = addUnit("jet", 2, 4, 2);
+  groundedFlyingTarget.statuses.grounded = 1;
+  const groundedNearby = addUnit("turk", 2, 5, 2);
+  expect(attackUnit(groundedA10, groundedFlyingTarget), "A-10 should use BRRRRT on grounded flying targets");
+  expect(groundedFlyingTarget.shield === 0 && groundedFlyingTarget.hp === 150, "grounded flying target should take BRRRRT multi-hit damage");
+  expect(!state.units.includes(groundedNearby), "grounded flying target should trigger A-10 Area Damage");
 }
 
 function testAbilities() {
@@ -771,4 +839,28 @@ function testAbilities() {
   setEnergy(1, 2);
   expect(activateAbility(jet), "Jet should return to hand");
   expect(getPlayer(1).hand.some((card) => card.id === "jet"), "Jet card should be in hand");
+
+  clearNonBases();
+  const orisa = addUnit("orisa", 1, 4, 4);
+  setEnergy(1, 3);
+  expect(activateAbility(orisa, { x: 4, y: 4 }), "Orisa should place barrier on her own tile");
+  expect(state.units.some((unit) => unit.cardId === "orisa-barrier" && unit.x === 4 && unit.y === 4), "Orisa Barrier should be on Orisa's tile");
+
+  clearNonBases();
+  getPlayer(1).graveyard = [];
+  const deadJet = addUnit("jet", 1, 4, 4);
+  applyDamage(deadJet, 999, null, { ignoreShield: true, ignoreTitanHide: true });
+  const mercy = addUnit("mercy", 1, 4, 5);
+  setEnergy(1, 3);
+  expect(activateAbility(mercy), "Mercy should revive a dead friendly unit");
+  const revivedJet = state.units.find((unit) => unit.cardId === "jet" && unit.owner === 1);
+  expect(revivedJet && revivedJet.hp === 300 && revivedJet.shield === 0 && revivedJet.baseShield === 0 && revivedJet.attachedShield === 0 && revivedJet.maxAttachedShield === 0, "Mercy revive should return unit with max 300 HP and no shield");
+
+  clearNonBases();
+  const geertje = addUnit("geertje", 1, 4, 4);
+  applyDamage(geertje, 999, null, { ignoreShield: true, ignoreTitanHide: true });
+  const summonedMarokkaan = state.units.find((unit) => unit.cardId === "marokkaan" && unit.owner === 1);
+  const summonedTurk = state.units.find((unit) => unit.cardId === "turk" && unit.owner === 1);
+  expect(summonedTurk && summonedTurk.hp === 50 && summonedTurk.shield === 0, "Geertje death should summon Turk without shield");
+  expect(summonedMarokkaan && summonedMarokkaan.hp === 50 && summonedMarokkaan.shield === 0 && summonedMarokkaan.baseShield === 0, "Geertje death should summon Marokkaan without shield");
 }
