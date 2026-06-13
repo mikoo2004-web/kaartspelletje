@@ -320,7 +320,8 @@ h3 {
   outline-offset: -5px;
 }
 
-.cell.valid-attack {
+.cell.valid-attack,
+.cell.valid-base-attack {
   background:
     linear-gradient(rgba(216, 68, 68, 0.35), rgba(216, 68, 68, 0.35)),
     #efe4cf;
