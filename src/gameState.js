@@ -540,7 +540,20 @@ export function decrementStatuses(playerId) {
     .forEach((unit) => {
       Object.keys(unit.statuses).forEach((key) => {
         unit.statuses[key] -= 1;
-        if (unit.statuses[key] <= 0) delete unit.statuses[key];
+        if (unit.statuses[key] <= 0) {
+          delete unit.statuses[key];
+          if (key === "krabRaveControl" && unit.originalOwnerBeforeKrabRave) {
+            const oldOwner = unit.owner;
+            unit.owner = unit.originalOwnerBeforeKrabRave;
+            unit.originalOwnerBeforeKrabRave = null;
+            addLog(`${unit.name} keert terug naar speler ${unit.owner} na Krab Rave.`);
+            if (oldOwner !== unit.owner) {
+              unit.hasMovedThisTurn = false;
+              unit.hasAttackedThisTurn = false;
+              unit.hasUsedAbilityThisTurn = false;
+            }
+          }
+        }
       });
       if (unit.cooldownRemaining > 0) unit.cooldownRemaining -= 1;
       if (unit.healCooldownRemaining > 0) unit.healCooldownRemaining -= 1;
@@ -574,9 +587,18 @@ export function endTurn() {
     state.inspectedUnitId = null;
     state.currentMode = "discarding";
     state.pendingDiscardPlayer = player.id;
-    addLog(`Speler ${player.id}: kies 1 kaart om weg te gooien voor je beurt eindigt.`);
+    addLog(`Speler ${player.id}: je mag 1 kaart weggooien voor +1 energie volgende beurt, of eindigen zonder discard.`);
     return false;
   }
+  finishEndTurn();
+  return true;
+}
+
+export function skipEndTurnDiscard() {
+  const player = getPlayer(state.pendingDiscardPlayer);
+  if (!player || player.id !== state.activePlayer || state.currentMode !== "discarding") return false;
+  addLog(`Speler ${player.id} eindigt de beurt zonder kaart weg te gooien.`);
+  state.pendingDiscardPlayer = null;
   finishEndTurn();
   return true;
 }
@@ -588,7 +610,8 @@ export function discardCardForEndTurn(index) {
   if (!card) return false;
   player.hand.splice(index, 1);
   player.graveyard.push({ ...card, zoneReason: "end-turn-discard" });
-  addLog(`Speler ${player.id} gooit ${card.name} weg.`);
+  player.nextTurnEnergyBonus = (player.nextTurnEnergyBonus || 0) + 1;
+  addLog(`Speler ${player.id} gooit ${card.name} weg en krijgt volgende beurt +1 energie.`);
   state.pendingDiscardPlayer = null;
   finishEndTurn();
   return true;
@@ -678,6 +701,7 @@ function applyBasePressure(playerId) {
   if (!base) return;
   const enemyUnits = state.units.filter((unit) => {
     if (unit.owner === playerId || unit.type === "base") return false;
+    if (!unit.attacks?.some((attack) => (attack.damage || 0) > 0)) return false;
     const tile = tileAt(unit.x, unit.y);
     if (!tile || tile.protectedForPlayer !== playerId) return false;
     return !unitsAt(unit.x, unit.y).some((candidate) => candidate.owner === playerId && candidate.type !== "base");
