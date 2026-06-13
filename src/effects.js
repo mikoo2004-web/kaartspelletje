@@ -19,8 +19,10 @@ export function useSpell(card, x, y, targetUnitId = null) {
   }
   if (card.id === "krab-rave") {
     if (!enemyTarget) return fail("Krab Rave moet op een enemy unit.");
-    enemyTarget.statuses.stunned = Math.max(enemyTarget.statuses.stunned || 0, 4);
-    addLog(`${enemyTarget.name} is 3 beurten stunned door Krab Rave.`);
+    enemyTarget.originalOwnerBeforeKrabRave = enemyTarget.owner;
+    enemyTarget.owner = playerId;
+    enemyTarget.statuses.krabRaveControl = Math.max(enemyTarget.statuses.krabRaveControl || 0, 1);
+    addLog(`Krab Rave neemt ${enemyTarget.name} over voor 1 beurt.`);
     return true;
   }
   if (card.id === "f2") {
@@ -62,9 +64,10 @@ export function useSpell(card, x, y, targetUnitId = null) {
     state.units.slice().forEach((unit) => {
       if (unit.owner === playerId || unit.type === "base") return;
       applyDamage(unit, 50, null, { antDamageType: "area", sourceName: "Sneeuwstorm", stackOrAreaDamage: true });
+      unit.statuses.stunned = Math.max(unit.statuses.stunned || 0, 2);
       if (unit.tags.includes("flying")) unit.statuses.grounded = 1;
     });
-    addLog("Sneeuwstorm doet 50 damage op enemy troepen en groundt enemy flying units.");
+    addLog("Sneeuwstorm doet 50 damage, stuns alle enemy troepen 1 beurt en groundt enemy flying units.");
     return true;
   }
   if (card.id === "nuke") {
@@ -384,18 +387,16 @@ function useElPrimoJump(unit, target) {
 
 function useOrisaBarrier(unit, target = null) {
   if (unit.cooldownRemaining > 0) return fail("Orisa barrier zit nog op cooldown.");
-  if (!target || typeof target.x !== "number" || typeof target.y !== "number" || distance(unit, target) > 1) {
-    return fail("Orisa Barrier moet op Orisa of een vakje binnen range 1.");
-  }
-  if (target.x < 0 || target.x >= state.boardCols || target.y < 0 || target.y >= state.boardRows) {
+  const spot = target && Number.isInteger(target.x) && distance(unit, target) <= 1 ? target : unit;
+  if (spot.x < 0 || spot.x >= state.boardCols || spot.y < 0 || spot.y >= state.boardRows) {
     return fail("Orisa Barrier moet binnen het bord.");
   }
-  const blockers = unitsAt(target.x, target.y).filter((candidate) =>
-    candidate.type === "building" || candidate.unitId !== unit.unitId && candidate.owner !== unit.owner
+  const blockers = unitsAt(spot.x, spot.y).filter((candidate) =>
+    candidate.type === "building" || candidate.owner !== unit.owner
   );
   if (blockers.length) return fail("Orisa Barrier kan hier niet geplaatst worden.");
   const card = cardById["orisa-barrier"];
-  state.units.push(createUnit(card, unit.owner, target.x, target.y));
+  state.units.push(createUnit(card, unit.owner, spot.x, spot.y));
   unit.cooldownRemaining = 6;
   addLog("Orisa plaatst een barrier.");
   return true;
