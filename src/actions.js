@@ -521,6 +521,29 @@ function stackAreaTargetsAround(attacker, center, radius, { includeFriendly = fa
   );
 }
 
+function baseRowForOwner(ownerId) {
+  return ownerId === 1 ? state.boardRows - 1 : 0;
+}
+
+function impactPointForTarget(target) {
+  if (target?.type === "base" && target.baseZoneTarget) {
+    return { x: target.targetColumn, y: baseRowForOwner(target.owner) };
+  }
+  return { x: target.x, y: target.y };
+}
+
+function applyAreaDamageToBaseIfNeeded(attacker, impact, radius, amount, options = {}) {
+  const enemyBaseOwnerId = attacker.owner === 1 ? 2 : 1;
+  const base = getBase(enemyBaseOwnerId);
+  if (!base) return;
+  const baseRow = baseRowForOwner(enemyBaseOwnerId);
+  const canReachBaseRow = Array.from({ length: state.boardCols }, (_, x) => ({ x, y: baseRow }))
+    .some((baseTile) => distance(impact, baseTile) <= radius);
+  if (!canReachBaseRow) return;
+  applyDamage(base, amount, attacker, options);
+  addLog(`${base.name} krijgt ${amount} Area Damage.`);
+}
+
 function canReceiveStackDamageFrom(attacker, target) {
   if (attacker?.cardId === "bom-gooier" && target.tags?.includes("flying") && !target.statuses.grounded) return false;
   return true;
@@ -567,8 +590,7 @@ export function attackUnit(attacker, target) {
   let totalDamageForHealing = 0;
   if (attacker.cardId === "schwerer-gustav") {
     if (target.type === "base") {
-      applyDamage(target, 400, attacker, { attackName: "siege" });
-      addLog("Schwerer Gustav vuurt op de base voor 400 damage.");
+      applyGustavAttack(attacker, target, true);
       attacker.hasAttackedThisTurn = true;
       return true;
     }
@@ -625,7 +647,8 @@ export function attackUnit(attacker, target) {
       if (target.x !== beforeX || target.y !== beforeY) break;
     }
     if (attacker.cardId === "sigma") {
-      stackAreaTargetsAround(attacker, target, 1, { excludeUnitId: target.unitId })
+      const sigmaImpact = impactPointForTarget(target);
+      stackAreaTargetsAround(attacker, sigmaImpact, 1, { excludeUnitId: target.unitId })
         .forEach((candidate) => {
           for (let i = 0; i < 2; i += 1) {
             const beforeX = candidate.x;
@@ -635,6 +658,11 @@ export function attackUnit(attacker, target) {
             if (candidate.x !== beforeX || candidate.y !== beforeY) break;
           }
         });
+      if (target.type !== "base") {
+        for (let i = 0; i < 2; i += 1) {
+          applyAreaDamageToBaseIfNeeded(attacker, sigmaImpact, 1, 50, { attackName: "ranged", antDamageType: "area", stackOrAreaDamage: true });
+        }
+      }
       addLog("Sigma Gravity Area Damage raakt enemy units binnen range 1 van het geraakte target voor 50 x2.");
     }
   }
@@ -710,6 +738,7 @@ export function attackUnit(attacker, target) {
 
 function applyA10Attack(attacker, target, attack) {
   const hits = attack.hits || 1;
+  const impact = impactPointForTarget(target);
   if (attack.name === "BRRRRT") {
     addLog(`A-10 Thunderbolt gebruikt BRRRRT op ${target.name} en doet 25x10 damage.`);
   } else {
@@ -724,12 +753,15 @@ function applyA10Attack(attacker, target, attack) {
   }
   if (attack.name === "BRRRRT") {
     addLog("A-10 Thunderbolt raakt omliggende units met 50 Area Damage.");
-    stackAreaTargetsAround(attacker, target, 1, { excludeUnitId: target.unitId })
+    stackAreaTargetsAround(attacker, impact, 1, { excludeUnitId: target.unitId })
       .forEach((unit) => {
         if (!getUnit(unit.unitId)) return;
         applyDamage(unit, 50, attacker, { attackName: "a10-area", antDamageType: "area", sourceName: "A-10 Area Damage", stackOrAreaDamage: true });
         addLog(`${unit.name} krijgt 50 Area Damage van A-10 Thunderbolt.`);
       });
+    if (target.type !== "base") {
+      applyAreaDamageToBaseIfNeeded(attacker, impact, 1, 50, { attackName: "a10-area", antDamageType: "area", sourceName: "A-10 Area Damage", stackOrAreaDamage: true });
+    }
   }
 }
 
@@ -770,9 +802,12 @@ export function attackGustavTile(attacker, x, y) {
 }
 
 function applyGustavAttack(attacker, target, hasMainTarget) {
-  const impact = { x: target.x, y: target.y };
+  const impact = impactPointForTarget(target);
   if (hasMainTarget && target.unitId) {
     addLog(`Schwerer Gustav vuurt op ${target.name} voor 400 damage.`);
+    applyDamage(target, 400, attacker, { attackName: "siege" });
+  } else if (hasMainTarget && target.type === "base") {
+    addLog("Schwerer Gustav vuurt op de base voor 400 damage.");
     applyDamage(target, 400, attacker, { attackName: "siege" });
   } else {
     addLog("Schwerer Gustav vuurt op een leeg vakje en veroorzaakt 200 Area Damage rondom dat vakje.");
