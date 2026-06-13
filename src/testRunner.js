@@ -1,7 +1,7 @@
 import { cardById, cards } from "./cards.js";
 import { activateAbility, applyDamage, attackGustavTile, attackUnit, canAttack, makeBaseAttackTarget, moveUnit, playCard } from "./actions.js";
 import { useSpell, useUnitAbility } from "./effects.js";
-import { addLog, BASE_ENERGY_PER_TURN, claimTerritory, createUnit, discardCardForEndTurn, endTurn, getBase, getPlayer, HAND_SIZE, MAX_ENERGY, resetGame, spawnAntToken, state, tileAt } from "./gameState.js";
+import { addLog, BASE_ENERGY_PER_TURN, claimTerritory, createUnit, discardCardForEndTurn, endTurn, getBase, getPlayer, HAND_SIZE, MAX_ENERGY, resetGame, skipEndTurnDiscard, spawnAntToken, state, tileAt } from "./gameState.js";
 
 const tests = [
   ["all", "Run all tests", runAllTests],
@@ -165,6 +165,13 @@ function testRangedCombat() {
   setEnergy(1, 2);
   expect(attackUnit(attacker, target), "ranged adjacent attack should execute");
   expect(target.shield === 0 && target.hp === 300, "a single hit should break shield but not overflow to HP");
+
+  clearNonBases();
+  const cop = addUnit("gta-cop", 1, 4, 4);
+  const copTarget = addUnit("pam", 2, 4, 2);
+  expect(canAttack(cop, copTarget), "GTA Cop should be able to attack at range 2");
+  expect(attackUnit(cop, copTarget), "GTA Cop attack should execute");
+  expect(copTarget.hp === 300, "GTA Cop should deal 100 damage");
 }
 
 function testJunkrat() {
@@ -226,14 +233,20 @@ function testEndTurnDiscard() {
   nextPlayer.hand = [cardById.pam];
   nextPlayer.deck = [cardById.steve, cardById.jet, cardById.trump, cardById.bunker];
   const p2EnergyBefore = getPlayer(2).energy;
-  expect(!endTurn(), "end turn should wait for a discard when hand has cards");
+  expect(!endTurn(), "end turn should offer an optional discard when hand has cards");
   expect(state.currentMode === "discarding" && state.pendingDiscardPlayer === 1, "game should enter discard mode for active player");
   expect(discardCardForEndTurn(0), "discarding a card should finish the turn");
   expect(state.activePlayer === 2, "turn should pass to player 2 after discard");
   expect(player.hand.length === 1, "one card should be discarded");
   expect(player.graveyard.some((card) => card.id === "steve" && card.zoneReason === "end-turn-discard"), "discarded card should enter graveyard");
+  expect(player.nextTurnEnergyBonus === 1, "discarding at end turn should give +1 energy next turn");
   expect(getPlayer(2).energy === Math.min(MAX_ENERGY, p2EnergyBefore + BASE_ENERGY_PER_TURN), "next player should gain energy after discard");
   expect(getPlayer(2).hand.length === HAND_SIZE, "upkeep should refill next player's hand to 5");
+
+  getPlayer(2).hand = [cardById.pam];
+  expect(!endTurn(), "P2 end turn should offer optional discard");
+  expect(skipEndTurnDiscard(), "player should be able to end turn without discarding");
+  expect(state.activePlayer === 1, "turn should pass without discard");
 }
 
 function testUpkeep() {
@@ -611,13 +624,14 @@ function testBalancePatch() {
   pressureBase.hp = 1000;
   addUnit("turk", 2, 3, 8);
   addUnit("marokkaan", 2, 4, 7);
+  addUnit("medic-drone", 2, 4, 8);
   addUnit("pam", 2, 5, 8);
   addUnit("steve", 1, 5, 8);
   getPlayer(1).hand = [];
   getPlayer(2).hand = [];
   state.activePlayer = 2;
   endTurn();
-  expect(pressureBase.hp === 900, "Base Pressure should deal 5% current HP per enemy unit in protected base-territory");
+  expect(pressureBase.hp === 900, "Base Pressure should deal 5% current HP per enemy combat unit and ignore Medic Drone");
   pressureBase.hp = 1;
   getPlayer(1).hand = [];
   endTurn();
@@ -825,6 +839,21 @@ function testA10() {
   expect(attackUnit(groundedA10, groundedFlyingTarget), "A-10 should use BRRRRT on grounded flying targets");
   expect(groundedFlyingTarget.shield === 0 && groundedFlyingTarget.hp === 150, "grounded flying target should take BRRRRT multi-hit damage");
   expect(!state.units.includes(groundedNearby), "grounded flying target should trigger A-10 Area Damage");
+
+  clearNonBases();
+  const baseA10 = addUnit("a-10-thunderbolt", 1, 4, 2);
+  const p2Base = getBase(2);
+  const baseSplashTarget = addUnit("turk", 2, 5, 0);
+  expect(attackUnit(baseA10, makeBaseAttackTarget(2, 4)), "A-10 should attack base with BRRRRT");
+  expect(p2Base.hp === 2250, "A-10 BRRRRT should deal 25x10 to base");
+  expect(!state.units.includes(baseSplashTarget), "A-10 base attack should splash nearby units on the base row");
+
+  clearNonBases();
+  const splashBaseA10 = addUnit("a-10-thunderbolt", 1, 4, 2);
+  const p2BaseBeforeSplash = getBase(2).hp;
+  const rowTarget = addUnit("pam", 2, 4, 0);
+  expect(attackUnit(splashBaseA10, rowTarget), "A-10 should attack a unit on the base row");
+  expect(getBase(2).hp === p2BaseBeforeSplash - 50, "A-10 unit attack on base row should splash the base");
 }
 
 function testStackAreaTrueBunker() {
@@ -908,6 +937,22 @@ function testStackAreaTrueBunker() {
 }
 
 function testAbilities() {
+  clearNonBases();
+  const raveTarget = addUnit("steve", 2, 4, 4);
+  expect(useSpell(cardById["krab-rave"], 4, 4, raveTarget.unitId), "Krab Rave should take control of an enemy unit");
+  expect(raveTarget.owner === 1 && raveTarget.statuses.krabRaveControl, "Krab Rave target should belong to caster temporarily");
+  getPlayer(1).hand = [];
+  getPlayer(2).hand = [];
+  endTurn();
+  endTurn();
+  expect(raveTarget.owner === 2 && !raveTarget.statuses.krabRaveControl, "Krab Rave control should return on caster upkeep");
+
+  clearNonBases();
+  const snowEnemy = addUnit("pam", 2, 4, 4);
+  expect(cardById.sneeuwstorm.cost === 3, "Sneeuwstorm should cost 3");
+  expect(useSpell(cardById.sneeuwstorm, 4, 4), "Sneeuwstorm should cast");
+  expect(snowEnemy.hp === 350 && snowEnemy.statuses.stunned >= 1, "Sneeuwstorm should damage and stun enemies");
+
   clearNonBases();
   const thanos = addUnit("thanos", 1, 4, 4);
   const enemy = addUnit("steve", 2, 4, 5);
