@@ -1,6 +1,6 @@
 import { baseCards, buildImageDebugRows, cards } from "./cards.js";
 import { activateAbility, activateHeal, attackGustavTile, attackUnit, canAttack, canEnterEnemyOccupiedTile, distance, getBaseTileBlockers, getReachableAntSquares, getValidGustavTargetTiles, isDeployCell, isSmilerUntargetableBy, makeBaseAttackTarget, moveUnit, playCard, rangedDistance } from "./actions.js";
-import { addLog, clearSelection, discardCardForEndTurn, endTurn, getBase, getPlayer, getUnit, isAntToken, isPetrified, MAX_ENERGY, resetGame, state, tileAt, unitsAt } from "./gameState.js";
+import { addLog, clearSelection, discardCardForEndTurn, endTurn, getBase, getPlayer, getUnit, isAntToken, isPetrified, MAX_ENERGY, resetGame, skipEndTurnDiscard, state, tileAt, unitsAt } from "./gameState.js";
 
 const boardEl = document.querySelector("#board");
 const baseStatusP1El = document.querySelector("#baseStatusP1");
@@ -467,7 +467,7 @@ function renderUnitActionControls() {
   }
   unitActionControlsEl.classList.add("active");
   unitActionControlsEl.innerHTML = `
-    <div class="unit-action-label">${unit.name}: kies wat klikken op het bord doet</div>
+    <div class="unit-action-label">${unit.name}: rood klikt aanval, groen klikt lopen. Lopen/Aanvallen kan je nog forceren.</div>
     <div class="unit-action-buttons">
       <button type="button" data-intent="move" class="${state.unitActionIntent === "move" ? "active" : ""}" ${unit.hasMovedThisTurn ? "disabled" : ""}>Lopen</button>
       <button type="button" data-intent="attack" class="${state.unitActionIntent === "attack" ? "active" : ""}" ${unit.hasAttackedThisTurn ? "disabled" : ""}>Aanvallen</button>
@@ -527,8 +527,8 @@ function renderBoard() {
   const selected = getUnit(state.selectedUnitId);
   const validMoves = state.currentMode === "unitAction" && selected?.owner === state.activePlayer ? getValidMoveSquares(selected) : [];
   const validAttacks = state.currentMode === "unitAction" && selected?.owner === state.activePlayer ? getValidAttackTargets(selected) : [];
-  const validGustavTiles = state.currentMode === "unitAction" && state.unitActionIntent === "attack" && selected?.cardId === "schwerer-gustav" ? getValidGustavTargetTiles(selected) : [];
-  const validBaseAttacks = state.currentMode === "unitAction" && state.unitActionIntent === "attack" && selected?.owner === state.activePlayer
+  const validGustavTiles = state.currentMode === "unitAction" && selected?.cardId === "schwerer-gustav" ? getValidGustavTargetTiles(selected) : [];
+  const validBaseAttacks = state.currentMode === "unitAction" && selected?.owner === state.activePlayer
     ? getValidBaseAttackTiles(selected)
     : [];
   const validAbilityTargets = state.currentMode === "abilityTargeting" && selected?.owner === state.activePlayer ? getValidAbilityTargets(selected) : [];
@@ -651,7 +651,7 @@ function renderHand() {
   if (isDiscarding) {
     const notice = document.createElement("div");
     notice.className = "discard-notice";
-    notice.textContent = "Kies 1 kaart om weg te gooien.";
+    notice.textContent = "Optioneel: klik 1 kaart om weg te gooien voor +1 energie volgende beurt.";
     handEl.appendChild(notice);
   }
   player.hand.forEach((card, index) => {
@@ -695,10 +695,10 @@ function renderHand() {
   const endButton = document.createElement("button");
   endButton.type = "button";
   endButton.className = "hand-end-turn";
-  endButton.textContent = isDiscarding ? "Gooi eerst 1 kaart weg" : "Einde beurt";
-  endButton.disabled = isDiscarding;
+  endButton.textContent = isDiscarding ? "Einde beurt zonder discard" : "Einde beurt";
   endButton.addEventListener("click", () => {
-    endTurn();
+    if (isDiscarding) skipEndTurnDiscard();
+    else endTurn();
     render();
   });
   handEl.appendChild(endButton);
@@ -1106,7 +1106,7 @@ export function selectUnit(unitId) {
   state.inspectedUnitId = unitId;
   state.selectedCardIndex = null;
   state.currentMode = unit.owner === state.activePlayer ? "unitAction" : "idle";
-  state.unitActionIntent = "move";
+  state.unitActionIntent = "auto";
 }
 
 export function getValidMoveSquares(unit) {
@@ -1194,7 +1194,7 @@ export function getValidAbilityTargets(unit) {
   const type = unit.abilityTargetType || "none";
   if (unit.cooldownRemaining > 0) return [];
   if (unit.cardId === "thanos") {
-    if (unit.hasAttackedThisTurn) return [];
+    if (unit.hasAttackedThisTurn || unit.hp <= 300) return [];
     return state.units.filter((target) => target.owner !== unit.owner && target.type !== "base" && distance(unit, target) === 1);
   }
   if (unit.cardId === "roadhog") {
@@ -1422,15 +1422,34 @@ function handleCellClick(x, y, clickedUnitId = null) {
       render();
       return;
     }
+    if (state.unitActionIntent !== "move") {
+      if (clickedEnemy && canAttack(selected, clickedEnemy)) {
+        attackUnit(selected, clickedEnemy);
+        selectUnit(selected.unitId);
+        render();
+        return;
+      }
+      if (selected.cardId === "schwerer-gustav" && getValidGustavTargetTiles(selected).some((target) => target.x === x && target.y === y)) {
+        attackGustavTile(selected, x, y);
+        selectUnit(selected.unitId);
+        render();
+        return;
+      }
+      const enemyBaseOwnerId = selected.owner === 1 ? 2 : 1;
+      const enemyBaseRow = enemyBaseOwnerId === 1 ? state.boardRows - 1 : 0;
+      if (y === enemyBaseRow && getValidBaseAttackTiles(selected).some((target) => target.x === x && target.y === y)) {
+        handleBaseTileAttack(enemyBaseOwnerId, x);
+        return;
+      }
+    }
     if (getValidMoveSquares(selected).some((square) => square.x === x && square.y === y)) {
       moveUnit(selected, x, y);
       selectUnit(selected.unitId);
-      state.unitActionIntent = "move";
       render();
       return;
     }
     if (clickedEnemy && canAttack(selected, clickedEnemy)) {
-      addLog("Zet eerst de unit-actie op Aanvallen om dit target te raken.");
+      addLog("Klik op het rode target om aan te vallen, of kies Lopen als je bewust wil bewegen.");
       render();
       return;
     }
