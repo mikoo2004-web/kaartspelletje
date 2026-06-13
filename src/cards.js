@@ -158,7 +158,7 @@ const attack = (name, damage, range = 1, extra = {}) => ({ name, damage, range, 
 export const cards = [
   { id: "thanos", name: "Thanos", type: "unit", role: "hybrid", tags: ["melee", "ranged", "tank"], maxHp: 500, shield: 150, speed: 1, cost: 3, abilityCost: 1, attacks: [attack("melee", 250), attack("ranged", 150, 1, { cooldown: 1 })], abilityText: "Ability: sacrifice Thanos als hij meer dan 300 HP heeft en deze beurt niet heeft aangevallen. Doet 1000 true damage op 1 enemy binnen range 1." },
   { id: "junkrat", name: "Junkrat", type: "unit", role: "ranged", tags: ["ranged", "multi-hit", "stack-damage"], maxHp: 400, shield: 0, speed: 1, cost: 2, abilityCost: 1, attacks: [attack("ranged", 50, 3)], abilityText: "Passive: Stack Damage en afstandsschade. Distance 0 = 50 x5 melee. Distance 1 = 50 x4. Distance 2 = 50 x3. Distance 3 = 50 x1. Alle enemy units op het gekozen vakje krijgen de damage. Ability: Junkrat doet 100 selfdamage en 350 damage op een enemy unit op hetzelfde vakje." },
-  { id: "krab-rave", name: "Krab Rave", type: "spell", cost: 3, abilityText: "Stun 1 enemy voor 3 beurten." },
+  { id: "krab-rave", name: "Krab Rave", type: "spell", cost: 2, abilityText: "Neem 1 enemy unit over voor 1 beurt." },
   { id: "nyan-kat-regen", name: "Nyan Kat Regen", type: "spell", cost: 3, abilityText: "Raakt hele rij of kolom. Enemy 200 damage, friendly 100." },
   { id: "steve", name: "Steve", type: "unit", role: "melee", tags: ["melee", "loot"], maxHp: 300, shield: 50, speed: 1, cost: 2, attacks: [attack("melee", 200)], abilityText: "Passive: Loot. Als Steve een unit doodmaakt, krijgt hij zijn shield terug en doet hij daarna 50 damage meer." },
   { id: "el-primo", name: "El Primo", type: "unit", role: "melee", tags: ["melee", "tank", "tax-zone"], maxHp: 1000, shield: 0, speed: 1, cost: 4, attacks: [attack("melee", 50, 1, { hits: 2 })], abilityText: "Passive: enemy units moeten 2 energie betalen om weg te lopen uit hetzelfde vakje als El Primo." },
@@ -184,7 +184,7 @@ export const cards = [
   { id: "electro-giant", name: "Electro Giant", type: "unit", role: "tank-reflect", tags: ["tank", "melee", "reflect"], maxHp: 800, shield: 0, speed: 1, cost: 3, attacks: [attack("melee", 150)], abilityText: "Passive: range 1. Krijgt Electro Giant projectile damage, dan doet hij return damage terug, max 150 per aanval." },
   { id: "wall-wrecker", name: "Wall Wrecker", type: "building", role: "moving-building", tags: ["building", "bunker", "true-bunker", "moving", "transport", "passive"], maxHp: 750, shield: 0, speed: 1, cost: 3, attacks: [attack("melee", 150, 0)], abilityText: "Passive: True Bunker. Doet 150 damage, of 150 x2 tegen bunker-type gebouwen. Friendly units kunnen erin lopen en meebewegen, maar niet aanvallen tot ze eruit lopen. Units in Wall Wrecker zijn beschermd tegen directe damage, Stack Damage en Area Damage; Wall Wrecker neemt alle damage." },
   { id: "collete", name: "Collete", type: "unit", role: "melee-scaling", tags: ["melee", "scaling-damage"], maxHp: 550, shield: 0, speed: 1, cost: 2, attacks: [attack("melee", 50)], abilityText: "Passive: doet 50 damage + 33% van de huidige HP van de target unit." },
-  { id: "sneeuwstorm", name: "Sneeuwstorm", type: "spell", cost: 4, abilityText: "Enemy troepen krijgen 50 damage. Enemy flying units worden grounded 1 beurt." },
+  { id: "sneeuwstorm", name: "Sneeuwstorm", type: "spell", cost: 3, abilityText: "Enemy troepen krijgen 50 damage, worden 1 beurt stunned en enemy flying units worden grounded 1 beurt." },
   { id: "mind-stone", name: "Mind Stone", type: "spell", cost: 5, abilityText: "Steel 1 enemy non-base non-building unit. Die gestolen unit verliest elke eigen upkeep 20% van zijn max HP + max shield." },
   { id: "sigma", name: "Sigma", type: "unit", role: "ranged-area", tags: ["ranged", "area-damage", "stack-damage", "barrier"], maxHp: 300, shield: 215, speed: 1, cost: 4, abilityCost: 2, attacks: [attack("ranged", 75, 1, { hits: 2 })], abilityText: "Passive: ranged damage is 75 x2 range 1. Area Damage raakt ook alle enemy units binnen range 1 van het geraakte target voor 50 x2, en raakt alle enemy units op elk geraakt vakje. Ability: Barrier. Plaats binnen range 1 of op Sigma zelf een 700 shield barrier. Activeer opnieuw om de barrier te verwijderen. Als de barrier niet geplaatst is, geneest hij 100 shield per eigen beurt. Als het shield gesloopt wordt, is Sigma hem kwijt." },
   { id: "orisa", name: "Orisa", type: "unit", role: "ranged-tank", tags: ["ranged", "shield", "barrier"], maxHp: 200, shield: 200, speed: 1, cost: 3, abilityCost: 1, attacks: [attack("ranged", 100, 1, { hits: 2 })], abilityText: "Ability: plaats Orisa Barrier met 500 shield op Orisa's eigen vakje of een geldig vakje binnen range 1. Cooldown 6 eigen upkeep-beurten." },
@@ -226,7 +226,7 @@ export const cards = [
 ];
 
 const abilityTargetTypes = {
-  thanos: "none",
+  thanos: "enemyUnit",
   junkrat: "enemyUnit",
   biem: "none",
   "takel-heli": "none",
@@ -246,7 +246,7 @@ const abilityTargetTypes = {
   "business-vampire": "enemyUnit",
   mierenkoningin: "none",
   "schwerer-gustav": "tile",
-  orisa: "none",
+  orisa: "tile",
   "krab-rave": "enemyUnit",
   "nyan-kat-regen": "tile",
   "pumpkin-shield": "friendlyUnit",
