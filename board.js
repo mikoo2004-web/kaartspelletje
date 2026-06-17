@@ -1,6 +1,6 @@
 import { baseCards, buildImageDebugRows, cards } from "./cards.js";
 import { activateAbility, activateHeal, attackGustavTile, attackUnit, canAttack, canEnterEnemyOccupiedTile, distance, getBaseTileBlockers, getReachableAntSquares, getValidGustavTargetTiles, isDeployCell, isSmilerUntargetableBy, makeBaseAttackTarget, moveUnit, playCard, rangedDistance } from "./actions.js";
-import { addLog, clearSelection, discardCardForEndTurn, endTurn, getBase, getPlayer, getUnit, isAntToken, isPetrified, MAX_ENERGY, resetGame, state, tileAt, unitsAt } from "./gameState.js";
+import { addLog, clearSelection, discardCardForEndTurn, endTurn, getBase, getPlayer, getUnit, isAntToken, isPetrified, MAX_ENERGY, resetGame, skipEndTurnDiscard, state, tileAt, unitsAt } from "./gameState.js";
 
 const boardEl = document.querySelector("#board");
 const baseStatusP1El = document.querySelector("#baseStatusP1");
@@ -56,9 +56,11 @@ const keywordDefinitions = {
   melee: { label: "Melee", category: "Combat", description: "Deze unit valt enemies aan op hetzelfde vakje. Melee attacks raken flying units normaal niet, behalve als kaarttekst dat specifiek zegt." },
   ranged: { label: "Ranged", category: "Combat", description: "Deze unit kan enemies binnen zijn range aanvallen. Ranged attacks kunnen meestal flying units raken, maar kunnen niet door andere units heen schieten zonder pierce." },
   "multi-hit": { label: "Multi-hit", category: "Combat", description: "Deze attack bestaat uit meerdere losse hits. Elke hit wordt apart verwerkt." },
-  splash: { label: "Splash", category: "Combat", description: "Deze aanval raakt meerdere units of een gebied rondom het target." },
+  "stack-damage": { label: "Stack Damage", category: "Combat", description: "Een aanval of ability met Stack Damage raakt alle enemy units op het gekozen vakje, behalve als kaarttekst zegt dat friendlies ook geraakt worden." },
+  "area-damage": { label: "Area Damage", category: "Combat", description: "Een aanval of ability met Area Damage raakt meerdere vakjes en doet op elk geraakt vakje ook Stack Damage." },
   siege: { label: "Siege", category: "Combat", description: "Zware lange-afstandsunit met trage beweging en krachtige line attacks." },
   "line-attack": { label: "Line attack", category: "Combat", description: "Deze aanval mag alleen in een rechte horizontale of verticale lijn." },
+  "line-shot-through-units": { label: "Line shot through units", category: "Combat", description: "Deze siege attack mag door units heen schieten, maar telt niet als Pierce en geeft dit voordeel niet aan andere attacks." },
   "anti-building": { label: "Anti-building", category: "Combat", description: "Deze kaart is extra sterk tegen buildings." },
   "anti-air": { label: "Anti-air", category: "Combat", description: "Deze kaart is extra sterk tegen flying units." },
   "ground-only": { label: "Ground-only", category: "Combat", description: "Deze attack kan flying units niet raken." },
@@ -84,7 +86,8 @@ const keywordDefinitions = {
   building: { label: "Building", category: "Defense", description: "Een gebouw. Buildings kunnen normaal niet bewegen en sommige kaarten doen extra damage tegen buildings." },
   base: { label: "Base", category: "Defense", description: "De hoofdstructuur van een speler. Als je base kapotgaat, verlies je. De base telt als building/structure, maar niet als bunker." },
   structure: { label: "Structure", category: "Defense", description: "Verzamelnaam voor buildings en bases." },
-  bunker: { label: "Bunker", category: "Defense", description: "Een speciaal soort building dat units kan beschermen of vervoeren. De base telt niet als bunker." },
+  bunker: { label: "Bunker", category: "Defense", description: "Een speciaal soort building of transport-label. Dit blokt Stack/Area Damage niet automatisch; daarvoor is True Bunker nodig." },
+  "true-bunker": { label: "True Bunker", category: "Defense", description: "Een True Bunker beschermt units die erin zitten tegen Stack Damage en Area Damage. Alleen de True Bunker zelf krijgt de damage, zolang de kaarttekst dat zegt." },
   barrier: { label: "Barrier", category: "Defense", description: "Een verdedigende building/token met vooral shield. Barriers zijn bedoeld om damage op te vangen." },
   "shield-only": { label: "Shield-only", category: "Defense", description: "Deze kaart heeft geen HP, alleen shield. Als het shield weg is of true damage hem raakt, verdwijnt de kaart." },
   shield: { label: "Shield", category: "Defense", description: "Shield vangt damage op voordat HP geraakt wordt. In dit spel lekt een enkele hit die shield breekt niet door naar HP." },
@@ -326,7 +329,8 @@ function getCardKeywords(card) {
     ["summon", "summon"],
     ["token", "token"],
     ["flying", "flying"],
-    ["splash", "splash"],
+    ["area damage", "area-damage"],
+    ["stack damage", "stack-damage"],
     ["hook", "hook"],
     ["building", "building"],
     ["territory", "territory"],
@@ -463,7 +467,7 @@ function renderUnitActionControls() {
   }
   unitActionControlsEl.classList.add("active");
   unitActionControlsEl.innerHTML = `
-    <div class="unit-action-label">${unit.name}: kies wat klikken op het bord doet</div>
+    <div class="unit-action-label">${unit.name}: rood klikt aanval, groen klikt lopen. Lopen/Aanvallen kan je nog forceren.</div>
     <div class="unit-action-buttons">
       <button type="button" data-intent="move" class="${state.unitActionIntent === "move" ? "active" : ""}" ${unit.hasMovedThisTurn ? "disabled" : ""}>Lopen</button>
       <button type="button" data-intent="attack" class="${state.unitActionIntent === "attack" ? "active" : ""}" ${unit.hasAttackedThisTurn ? "disabled" : ""}>Aanvallen</button>
@@ -523,8 +527,8 @@ function renderBoard() {
   const selected = getUnit(state.selectedUnitId);
   const validMoves = state.currentMode === "unitAction" && selected?.owner === state.activePlayer ? getValidMoveSquares(selected) : [];
   const validAttacks = state.currentMode === "unitAction" && selected?.owner === state.activePlayer ? getValidAttackTargets(selected) : [];
-  const validGustavTiles = state.currentMode === "unitAction" && state.unitActionIntent === "attack" && selected?.cardId === "schwerer-gustav" ? getValidGustavTargetTiles(selected) : [];
-  const validBaseAttacks = state.currentMode === "unitAction" && state.unitActionIntent === "attack" && selected?.owner === state.activePlayer
+  const validGustavTiles = state.currentMode === "unitAction" && selected?.cardId === "schwerer-gustav" ? getValidGustavTargetTiles(selected) : [];
+  const validBaseAttacks = state.currentMode === "unitAction" && selected?.owner === state.activePlayer
     ? getValidBaseAttackTiles(selected)
     : [];
   const validAbilityTargets = state.currentMode === "abilityTargeting" && selected?.owner === state.activePlayer ? getValidAbilityTargets(selected) : [];
@@ -647,7 +651,7 @@ function renderHand() {
   if (isDiscarding) {
     const notice = document.createElement("div");
     notice.className = "discard-notice";
-    notice.textContent = "Kies 1 kaart om weg te gooien.";
+    notice.textContent = "Optioneel: klik 1 kaart om weg te gooien voor +1 energie volgende beurt.";
     handEl.appendChild(notice);
   }
   player.hand.forEach((card, index) => {
@@ -691,10 +695,10 @@ function renderHand() {
   const endButton = document.createElement("button");
   endButton.type = "button";
   endButton.className = "hand-end-turn";
-  endButton.textContent = isDiscarding ? "Gooi eerst 1 kaart weg" : "Einde beurt";
-  endButton.disabled = isDiscarding;
+  endButton.textContent = isDiscarding ? "Einde beurt zonder discard" : "Einde beurt";
   endButton.addEventListener("click", () => {
-    endTurn();
+    if (isDiscarding) skipEndTurnDiscard();
+    else endTurn();
     render();
   });
   handEl.appendChild(endButton);
@@ -1102,7 +1106,7 @@ export function selectUnit(unitId) {
   state.inspectedUnitId = unitId;
   state.selectedCardIndex = null;
   state.currentMode = unit.owner === state.activePlayer ? "unitAction" : "idle";
-  state.unitActionIntent = "move";
+  state.unitActionIntent = "auto";
 }
 
 export function getValidMoveSquares(unit) {
@@ -1190,7 +1194,7 @@ export function getValidAbilityTargets(unit) {
   const type = unit.abilityTargetType || "none";
   if (unit.cooldownRemaining > 0) return [];
   if (unit.cardId === "thanos") {
-    if (unit.hasAttackedThisTurn) return [];
+    if (unit.hasAttackedThisTurn || unit.hp <= 300) return [];
     return state.units.filter((target) => target.owner !== unit.owner && target.type !== "base" && distance(unit, target) === 1);
   }
   if (unit.cardId === "roadhog") {
@@ -1256,7 +1260,11 @@ export function getValidAbilityTargets(unit) {
     const targets = [];
     for (let y = 0; y < state.boardRows; y += 1) {
       for (let x = 0; x < state.boardCols; x += 1) {
-        if (distance(unit, { x, y }) === 1 && !unitsAt(x, y).length) targets.push({ x, y });
+        if (distance(unit, { x, y }) > 1) continue;
+        const blockers = unitsAt(x, y).filter((candidate) =>
+          candidate.type === "building" || candidate.unitId !== unit.unitId && candidate.owner !== unit.owner
+        );
+        if (!blockers.length) targets.push({ x, y });
       }
     }
     return targets;
@@ -1327,7 +1335,11 @@ export function getValidSpellTargets(card) {
     return targets;
   }
   if (card.id === "sniper-scope") {
-    return state.units.filter((unit) => unit.owner === active && unit.type !== "base" && unit.tags?.includes("ranged"));
+    return state.units.filter((unit) =>
+      unit.owner === active
+      && unit.type !== "base"
+      && unit.attacks?.some((attack) => attack.name === "ranged")
+    );
   }
   return [];
 }
@@ -1410,15 +1422,34 @@ function handleCellClick(x, y, clickedUnitId = null) {
       render();
       return;
     }
+    if (state.unitActionIntent !== "move") {
+      if (clickedEnemy && canAttack(selected, clickedEnemy)) {
+        attackUnit(selected, clickedEnemy);
+        selectUnit(selected.unitId);
+        render();
+        return;
+      }
+      if (selected.cardId === "schwerer-gustav" && getValidGustavTargetTiles(selected).some((target) => target.x === x && target.y === y)) {
+        attackGustavTile(selected, x, y);
+        selectUnit(selected.unitId);
+        render();
+        return;
+      }
+      const enemyBaseOwnerId = selected.owner === 1 ? 2 : 1;
+      const enemyBaseRow = enemyBaseOwnerId === 1 ? state.boardRows - 1 : 0;
+      if (y === enemyBaseRow && getValidBaseAttackTiles(selected).some((target) => target.x === x && target.y === y)) {
+        handleBaseTileAttack(enemyBaseOwnerId, x);
+        return;
+      }
+    }
     if (getValidMoveSquares(selected).some((square) => square.x === x && square.y === y)) {
       moveUnit(selected, x, y);
       selectUnit(selected.unitId);
-      state.unitActionIntent = "move";
       render();
       return;
     }
     if (clickedEnemy && canAttack(selected, clickedEnemy)) {
-      addLog("Zet eerst de unit-actie op Aanvallen om dit target te raken.");
+      addLog("Klik op het rode target om aan te vallen, of kies Lopen als je bewust wil bewegen.");
       render();
       return;
     }
