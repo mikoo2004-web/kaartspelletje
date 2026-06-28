@@ -79,6 +79,7 @@ export const availableImages = [
   "assets/cards/maarschalk.png",
   "assets/cards/manager.png",
   "assets/cards/politicus.png",
+  "assets/cards/verkenner.png",
 ];
 
 export const manualImageMap = {
