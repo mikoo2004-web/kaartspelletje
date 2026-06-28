@@ -71,7 +71,14 @@ export const availableImages = [
   "assets/cards/whiter skelenton.jpg",
   "assets/cards/skelenton.jpg",
   "assets/cards/standbeeld.PNG",
-  "assets/cards/Business Vampire.jpg"
+  "assets/cards/Business Vampire.jpg",
+  "assets/cards/boze oma.png",
+  "assets/cards/duif met mes.png",
+  "assets/cards/Koffieautomaat.png",
+  "assets/cards/Maandagochtend Medewerker.png",
+  "assets/cards/maarschalk.png",
+  "assets/cards/manager.png",
+  "assets/cards/politicus.png",
 ];
 
 export const manualImageMap = {
@@ -106,7 +113,14 @@ export const manualImageMap = {
   smiler: "assets/cards/smiler.jpg",
   "sniper-scope": "assets/cards/sniper-scope.jpg",
   "wanted-level": "assets/cards/Wanted Level.jpg",
-  "wither-skeleton": "assets/cards/whiter skelenton.jpg"
+  "wither-skeleton": "assets/cards/whiter skelenton.jpg",
+  "boze-oma": "assets/cards/boze oma.png",
+  "duif-met-mes": "assets/cards/duif met mes.png",
+  koffieautomaat: "assets/cards/Koffieautomaat.png",
+  "maandagochtend-medewerker": "assets/cards/Maandagochtend Medewerker.png",
+  "stratego-maarschalk": "assets/cards/maarschalk.png",
+  manager: "assets/cards/manager.png",
+  politicus: "assets/cards/politicus.png"
 };
 
 export function normalizeName(name = "") {
