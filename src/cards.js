@@ -119,8 +119,8 @@ export const manualImageMap = {
   "duif-met-mes": "assets/cards/duif met mes.png",
   koffieautomaat: "assets/cards/Koffieautomaat.png",
   "maandagochtend-medewerker": "assets/cards/Maandagochtend Medewerker.png",
-  "stratego-verkenner": "assets/cards/verkenner.png",
-  "stratego-maarschalk": "assets/cards/maarschalk.png",
+  verkenner: "assets/cards/verkenner.png",
+  maarschalk: "assets/cards/maarschalk.png",
   manager: "assets/cards/manager.png",
   politicus: "assets/cards/politicus.png"
 };
@@ -246,8 +246,8 @@ export const cards = [
   { id: "duif-met-mes", name: "Duif met Mes", type: "unit", role: "flying-assassin", tags: ["unit", "flying", "melee", "charger", "assassin", "grounded"], maxHp: 250, shield: 0, speed: 2, cost: 3, attacks: [attack("mesduik", 200, 1, { lunge: true, duifDive: true })], abilityText: "Attack: Mesduik. Mag een enemy op distance 1 aanvallen en beweegt daarna naar het target of een vrij adjacent vakje. Doet +50 als target al damaged is. Daarna grounded tot jouw volgende upkeep. Bij kill mag Duif 1 vakje extra bewegen, maar niet opnieuw aanvallen." },
   { id: "manager", name: "Manager", type: "unit", role: "risky-support", tags: ["unit", "support", "damage-boost", "speed-boost", "lifesteal", "scaling-damage"], maxHp: 1000, shield: 0, speed: 1, cost: 4, abilityCost: 0, attacks: [attack("prestatiegesprek", 0, 3)], abilityText: "Komt in play met 150/1000 HP. Ability: Motiverende Speech range 3, 1x per beurt, cost 0. Friendly unit krijgt permanent +25% damage en +1 speed, max 1 keer. Gebuffte units verliezen elke upkeep 10% max HP; Manager healt dat bedrag. Attack range 3: doet 70% van totale damage van friendly Motiverende Speech units." },
   { id: "maandagochtend-medewerker", name: "Maandagochtend Medewerker", type: "unit", role: "scaling-bruiser", tags: ["unit", "melee", "scaling-damage", "rage"], maxHp: 500, shield: 0, speed: 1, cost: 4, attacks: [attack("melee", 100, 0)], abilityText: "Passive: damage is 100 + ontbrekende HP. Bij 500 HP doet hij 100, bij 250 HP doet hij 350, bij 1 HP doet hij 599." },
-  { id: "stratego-verkenner", name: "Stratego 2 - Verkenner", type: "unit", role: "scout-territory", tags: ["unit", "melee", "scout", "speed", "revealed", "territory"], maxHp: 150, shield: 0, speed: 5, cost: 2, attacks: [attack("melee", 50, 0)], abilityText: "Attack: 50 damage en geeft Revealed voor 2 beurten. Revealed: geen stealth/untargetable en 25% meer damage van alles. Movement: claimt een 3x3 area rondom zijn eindpositie." },
-  { id: "stratego-maarschalk", name: "Stratego 10 - Maarschalk", type: "unit", role: "boss-duelist", tags: ["unit", "melee", "tank", "boss", "duelist", "echo"], maxHp: 2000, shield: 0, speed: 1, cost: 10, abilityCost: 0, attacks: [attack("maarschalkslag", 500, 0)], abilityText: "Attack: 500 melee damage met Echo Attack voor 50% damage op hetzelfde target, of een andere enemy op hetzelfde vakje als de eerste dood is. Passive: kan niet gestunned worden door units cost 3 of lager. Als hij in 1 beurt 150 damage krijgt wordt hij Hitted; loopt hij dan, verliest hij na movement 100 HP. Ability: Ranged Buff Command. Friendly ranged unit in 3x3 kan deze beurt niet aanvallen; Maarschalk krijgt tijdelijk range 1 als hij nog niet heeft aangevallen." }
+  { id: "verkenner", name: "Verkenner", type: "unit", role: "scout-territory", tags: ["unit", "melee", "scout", "speed", "revealed", "territory"], maxHp: 150, shield: 0, speed: 5, cost: 2, attacks: [attack("melee", 50, 0)], abilityText: "Attack: 50 damage en geeft Revealed voor 2 beurten. Revealed: geen stealth/untargetable en 25% meer damage van alles. Movement: claimt een 3x3 area rondom zijn eindpositie." },
+  { id: "maarschalk", name: "Maarschalk", type: "unit", role: "boss-duelist", tags: ["unit", "melee", "tank", "boss", "duelist", "echo"], maxHp: 2000, shield: 0, speed: 1, cost: 10, abilityCost: 0, attacks: [attack("maarschalkslag", 500, 0)], abilityText: "Attack: 500 melee damage met Echo Attack voor 50% damage op hetzelfde target, of een andere enemy op hetzelfde vakje als de eerste dood is. Passive: kan niet gestunned worden door units cost 3 of lager. Als hij in 1 beurt 150 damage krijgt wordt hij Hitted; loopt hij dan, verliest hij na movement 100 HP. Ability: Ranged Buff Command. Friendly ranged unit in 3x3 kan deze beurt niet aanvallen; Maarschalk krijgt tijdelijk range 1 als hij nog niet heeft aangevallen." }
 ];
 
 const abilityTargetTypes = {
@@ -275,7 +275,7 @@ const abilityTargetTypes = {
   koffieautomaat: "friendlyUnit",
   "duif-met-mes": "none",
   manager: "friendlyUnit",
-  "stratego-maarschalk": "friendlyUnit",
+  maarschalk: "friendlyUnit",
   orisa: "tile",
   "krab-rave": "enemyUnit",
   "nyan-kat-regen": "tile",
