@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img" aria-labelledby="title desc">
-  <title id="title">Placeholder kaartafbeelding</title>
-  <desc id="desc">Eenvoudige fallback afbeelding wanneer een kaartplaatje ontbreekt.</desc>
-  <rect width="320" height="220" fill="#f4ead8"/>
-  <rect x="18" y="18" width="284" height="184" rx="10" fill="#fffaf0" stroke="#c8b99d" stroke-width="4"/>
-  <path d="M72 148l48-54 38 42 26-28 64 70H72z" fill="#d8c7a7"/>
-  <circle cx="222" cy="72" r="26" fill="#ead8b5"/>
-  <text x="160" y="192" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#6f5f48">Geen afbeelding</text>
-</svg>
