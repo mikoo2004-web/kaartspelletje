@@ -1,4 +1,4 @@
-import { baseCards, buildImageDebugRows, cards } from "./cards.js";
+import { baseCards, buildImageDebugRows, cards } from "./cards.js?v=verkenner-image-1";
 import { activateAbility, activateHeal, attackGustavTile, attackUnit, canAttack, canEnterEnemyOccupiedTile, distance, getBaseTileBlockers, getReachableAntSquares, getValidGustavTargetTiles, isDeployCell, isSmilerUntargetableBy, makeBaseAttackTarget, moveUnit, playCard, rangedDistance } from "./actions.js";
 import { addLog, clearSelection, discardCardForEndTurn, endTurn, getBase, getPlayer, getUnit, isAntToken, isPetrified, MAX_ENERGY, resetGame, skipEndTurnDiscard, state, tileAt, unitsAt } from "./gameState.js";
 
@@ -1281,7 +1281,7 @@ export function getValidAbilityTargets(unit) {
       && distance(unit, target) <= 3
     );
   }
-  if (unit.cardId === "stratego-maarschalk") {
+  if (unit.cardId === "maarschalk") {
     return state.units.filter((target) =>
       target.owner === unit.owner
       && target.type !== "base"
@@ -1335,7 +1335,7 @@ export function getValidAbilityTargets(unit) {
 
 function hasActiveAbility(unit) {
   if (isPetrified(unit)) return false;
-  return ["thanos", "junkrat", "orisa", "roadhog", "jet", "mercy", "takel-heli", "sigma", "medic-drone", "creeper", "eye-of-cthulhu", "pillager-captain", "necromancer", "alchemist", "business-vampire", "mierenkoningin", "schwerer-gustav", "koffieautomaat", "manager", "stratego-maarschalk"].includes(unit.cardId);
+  return ["thanos", "junkrat", "orisa", "roadhog", "jet", "mercy", "takel-heli", "sigma", "medic-drone", "creeper", "eye-of-cthulhu", "pillager-captain", "necromancer", "alchemist", "business-vampire", "mierenkoningin", "schwerer-gustav", "koffieautomaat", "manager", "maarschalk"].includes(unit.cardId);
 }
 
 export function getValidSpellTargets(card) {
