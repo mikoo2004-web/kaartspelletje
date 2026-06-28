@@ -118,7 +118,7 @@ function testStart() {
   expect(state.boardRows === 9 && state.boardCols === 9, "expected 9x9 board");
   expect(state.units.filter((unit) => unit.type === "base").every((base) => base.maxHp === 2500 && base.hp === 2500), "both bases should have 2500 HP");
   expect(getPlayer(1).hand.length === HAND_SIZE && getPlayer(2).hand.length === HAND_SIZE, "both players need 5 hand cards");
-  const tokenIds = ["orisa-barrier", "sigma-barrier", "turk", "marokkaan", "slime", "pillager", "gta-cop", "skeleton", "mier-token"];
+  const tokenIds = ["orisa-barrier", "sigma-barrier", "turk", "marokkaan", "slime", "pillager", "gta-cop", "skeleton", "mier-token", "nyan-kat-token"];
   const deckCards = cards.filter((card) => !tokenIds.includes(card.id)).length;
   expect(getPlayer(1).deck.length === deckCards - HAND_SIZE && getPlayer(2).deck.length === deckCards - HAND_SIZE, "library count should match deck minus starting hand");
   expect(getPlayer(1).energy === BASE_ENERGY_PER_TURN && getPlayer(2).energy === 0, "P1 starts with 3 energy, P2 gains energy at first turn start");
