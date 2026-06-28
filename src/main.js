@@ -1,4 +1,4 @@
-import { bindUi, render } from "./board.js?v=verkenner-image-1";
+import { bindUi, render } from "./board.js?v=aura-zones-1";
 import { resetGame } from "./gameState.js";
 import { renderRulesPage } from "./rulesPage.js";
 import { bindTestPanel } from "./testRunner.js";
