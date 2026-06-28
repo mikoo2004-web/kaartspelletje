@@ -1,6 +1,6 @@
 import { baseCards, buildImageDebugRows, cards } from "./cards.js?v=verkenner-image-1";
 import { activateAbility, activateHeal, attackGustavTile, attackUnit, canAttack, canEnterEnemyOccupiedTile, distance, getBaseTileBlockers, getReachableAntSquares, getValidGustavTargetTiles, isDeployCell, isSmilerUntargetableBy, makeBaseAttackTarget, moveUnit, playCard, rangedDistance } from "./actions.js";
-import { addLog, clearSelection, discardCardForEndTurn, endTurn, getBase, getPlayer, getUnit, isAntToken, isPetrified, MAX_ENERGY, resetGame, skipEndTurnDiscard, state, tileAt, unitsAt } from "./gameState.js";
+import { addLog, clearSelection, discardCardForEndTurn, endTurn, getBase, getPlayer, getUnit, isAntToken, isPetrified, isStackingToken, MAX_ENERGY, resetGame, skipEndTurnDiscard, state, tileAt, unitsAt } from "./gameState.js";
 
 const boardEl = document.querySelector("#board");
 const baseStatusP1El = document.querySelector("#baseStatusP1");
@@ -1191,7 +1191,12 @@ export function getValidMoveSquares(unit) {
     for (let x = 0; x < state.boardCols; x += 1) {
       if (distance(unit, { x, y }) === 0 || distance(unit, { x, y }) > maxDistance) continue;
       const occupants = unitsAt(x, y);
-      const blockingOccupants = occupants.filter((candidate) => !isAntToken(candidate));
+      const isStackingMover = isStackingToken(unit);
+      const blockingOccupants = occupants.filter((candidate) => {
+        if (isStackingToken(candidate)) return false;
+        if (isStackingMover && candidate.owner === unit.owner && candidate.type === "unit") return false;
+        return true;
+      });
       const friendlyBuilding = occupants.find((candidate) => candidate.owner === unit.owner && candidate.type === "building");
       const ownBase = blockingOccupants.find((candidate) => candidate.owner === unit.owner && candidate.type === "base");
       const isOwnBaseTile = !!ownBase;
