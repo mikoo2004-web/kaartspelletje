@@ -69,6 +69,10 @@ const keywordDefinitions = {
   "shield-counter": { label: "Shield-counter", category: "Combat", description: "Deze kaart is speciaal goed tegen shield of krijgt voordeel wanneer shield breekt." },
   pierce: { label: "Pierce", category: "Combat", description: "Deze aanval kan door andere units heen schieten. Op dit moment heeft vooral Big Ben dit." },
   "damage-over-time": { label: "Damage-over-time", category: "Combat", description: "Deze kaart geeft een status die later extra damage doet." },
+  counter: { label: "Counter Damage", category: "Combat", description: "Deze unit doet automatisch damage terug volgens zijn kaarttekst." },
+  revealed: { label: "Revealed", category: "Support", description: "Deze unit verliest stealth/untargetable en krijgt 25% meer damage." },
+  echo: { label: "Echo Attack", category: "Combat", description: "Na de hoofdattack volgt nog een extra hit volgens kaarttekst." },
+  hitted: { label: "Hitted", category: "Combat", description: "Als deze unit genoeg damage in 1 beurt krijgt, volgt een straf wanneer hij beweegt." },
   "true-damage": { label: "True damage", category: "Combat", description: "Damage die shield negeert en direct HP raakt. Shield-only units verdwijnen door true damage." },
   swarm: { label: "Swarm", category: "Combat", description: "Swarm-units bestaan uit meerdere kleine eenheden in een token. Bij Mier(en) heeft elke mier 10 HP en 10 damage. Damage wordt per 10 omgerekend naar dode mieren; restdamage onder 10 vervalt." },
 
@@ -112,6 +116,9 @@ const keywordDefinitions = {
   "area-heal": { label: "Area-heal", category: "Support", description: "Deze kaart kan meerdere friendly units in een klein gebied healen." },
   aura: { label: "Aura", category: "Support", description: "Deze kaart geeft automatisch voordeel aan units in een gebied om hem heen." },
   "damage-boost": { label: "Damage-boost", category: "Support", description: "Deze kaart kan de attack damage van een andere unit verhogen." },
+  koffieboost: { label: "Koffieboost", category: "Support", description: "Tijdelijke boost: +1 speed en +20% damage. Herhaald gebruik kan Crash veroorzaken." },
+  tax: { label: "Tax", category: "Support", description: "De enemy moet energie betalen om deze kaart direct te targeten." },
+  politiek: { label: "Politiek", category: "Support", description: "Politieke kaarten geven steun, tax of andere board-control effecten." },
   economy: { label: "Economy", category: "Support", description: "Deze kaart kan extra energie of deck/hand-voordeel opleveren." },
   buff: { label: "Buff", category: "Support", description: "Deze kaart geeft een friendly unit een blijvende of tijdelijke verbetering." },
   lifesteal: { label: "Lifesteal", category: "Support", description: "Deze unit healt zichzelf of iemand anders op basis van damage." },
@@ -128,6 +135,7 @@ const keywordDefinitions = {
   "chain-kill": { label: "Chain-kill", category: "Summon / Death", description: "Deze unit mag na een kill opnieuw aanvallen volgens zijn kaarttekst." },
 
   territory: { label: "Territory", category: "Board / Territory", description: "Deze kaart heeft een effect dat territory claimt of beïnvloedt." },
+  scout: { label: "Scout", category: "Board / Territory", description: "Deze unit is snel en kan extra territory of informatie pakken." },
   phase: { label: "Phase", category: "Board / Territory", description: "Deze unit verandert permanent zodra een bepaalde voorwaarde wordt gehaald." },
   "tax-zone": { label: "Tax-zone", category: "Board / Territory", description: "Deze kaart maakt wegbewegen uit hetzelfde vakje duurder of lastiger." },
 
@@ -1189,7 +1197,7 @@ function getValidBaseAttackTiles(unit) {
 }
 
 export function getValidAbilityTargets(unit) {
-  if (!unit || unit.owner !== state.activePlayer || unit.hasUsedAbilityThisTurn || unit.statuses.cannotAct) return [];
+  if (!unit || unit.owner !== state.activePlayer || (unit.hasUsedAbilityThisTurn && unit.cardId !== "koffieautomaat") || unit.statuses.cannotAct) return [];
   if (getPlayer().energy < (unit.abilityCost ?? 1)) return [];
   const type = unit.abilityTargetType || "none";
   if (unit.cooldownRemaining > 0) return [];
@@ -1256,6 +1264,32 @@ export function getValidAbilityTargets(unit) {
       { x: unit.x - 1, y: unit.y }
     ].filter((target) => target.x >= 0 && target.x < state.boardCols && !unitsAt(target.x, target.y).length);
   }
+  if (unit.cardId === "koffieautomaat") {
+    return state.units.filter((target) =>
+      target.owner === unit.owner
+      && target.type !== "base"
+      && target.type !== "building"
+      && distance(unit, target) <= 1
+    );
+  }
+  if (unit.cardId === "manager") {
+    return state.units.filter((target) =>
+      target.owner === unit.owner
+      && target.type !== "base"
+      && target.type !== "building"
+      && !target.statuses.managerBuff
+      && distance(unit, target) <= 3
+    );
+  }
+  if (unit.cardId === "stratego-maarschalk") {
+    return state.units.filter((target) =>
+      target.owner === unit.owner
+      && target.type !== "base"
+      && target.tags?.includes("ranged")
+      && Math.abs(unit.x - target.x) <= 1
+      && Math.abs(unit.y - target.y) <= 1
+    );
+  }
   if (unit.cardId === "orisa") {
     const targets = [];
     for (let y = 0; y < state.boardRows; y += 1) {
@@ -1301,7 +1335,7 @@ export function getValidAbilityTargets(unit) {
 
 function hasActiveAbility(unit) {
   if (isPetrified(unit)) return false;
-  return ["thanos", "junkrat", "orisa", "roadhog", "jet", "mercy", "takel-heli", "sigma", "medic-drone", "creeper", "eye-of-cthulhu", "pillager-captain", "necromancer", "alchemist", "business-vampire", "mierenkoningin", "schwerer-gustav"].includes(unit.cardId);
+  return ["thanos", "junkrat", "orisa", "roadhog", "jet", "mercy", "takel-heli", "sigma", "medic-drone", "creeper", "eye-of-cthulhu", "pillager-captain", "necromancer", "alchemist", "business-vampire", "mierenkoningin", "schwerer-gustav", "koffieautomaat", "manager", "stratego-maarschalk"].includes(unit.cardId);
 }
 
 export function getValidSpellTargets(card) {
