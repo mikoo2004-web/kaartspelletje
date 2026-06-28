@@ -119,6 +119,7 @@ export const manualImageMap = {
   "duif-met-mes": "assets/cards/duif met mes.png",
   koffieautomaat: "assets/cards/Koffieautomaat.png",
   "maandagochtend-medewerker": "assets/cards/Maandagochtend Medewerker.png",
+  "stratego-verkenner": "assets/cards/verkenner.png",
   "stratego-maarschalk": "assets/cards/maarschalk.png",
   manager: "assets/cards/manager.png",
   politicus: "assets/cards/politicus.png"
