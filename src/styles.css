@@ -789,6 +789,46 @@ h3 {
   overflow: hidden;
 }
 
+.buff-reference {
+  max-height: 310px;
+  overflow: auto;
+}
+
+.buff-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.buff-grid div {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(91, 79, 63, 0.18);
+  border-radius: 7px;
+  background: rgba(255, 250, 240, 0.72);
+  padding: 6px 7px;
+}
+
+.buff-grid b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  border-radius: 999px;
+  background: #2b251f;
+  color: #fff7ed;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.buff-grid span {
+  color: #3f372d;
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
 .energy-bar {
   display: flex;
   align-items: center;
