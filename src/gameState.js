@@ -110,6 +110,7 @@ export function createUnit(card, owner, x, y) {
     unit.antCount = antCount;
     syncAntStats(unit);
   }
+  if (card.id === "manager") unit.hp = 150;
   if (card.id === "business-vampire") unit.hp = 500;
   if (card.id === "schwerer-gustav") unit.gustavMoveCooldown = 0;
   Object.defineProperties(unit, {
@@ -400,6 +401,21 @@ export function removeUnit(unit, killer = null) {
       if (!isUnitAlive(target)) removeUnit(target, unit);
     });
   }
+  if (!wasPetrified && unit.cardId === "politicus") {
+    state.units.slice()
+      .filter((candidate) => candidate.owner === unit.owner && candidate.supportedByPoliticusId === unit.unitId)
+      .forEach((candidate) => {
+        const shieldLoss = candidate.politiekeSteunShield || 0;
+        candidate.attachedShield = Math.max(0, (candidate.attachedShield || 0) - shieldLoss);
+        candidate.maxAttachedShield = Math.max(0, (candidate.maxAttachedShield || 0) - shieldLoss);
+        candidate.politiekeSteunShield = 0;
+        candidate.supportedByPoliticusId = null;
+        const damage = Math.floor((candidate.maxHp || 0) * 0.3);
+        if (damage > 0) applyStatusDamage(candidate, damage, "Val van de Regering");
+        if (!isUnitAlive(candidate)) removeUnit(candidate, unit);
+        addLog(`Val van de Regering: ${candidate.name} verliest Politieke Steun en krijgt ${damage} damage.`);
+      });
+  }
   if (!wasPetrified && unit.cardId === "sigma-barrier" && unit.sourceSigmaId) {
     const sigma = getUnit(unit.sourceSigmaId);
     if (sigma?.sigmaBarrier) {
@@ -542,6 +558,24 @@ export function decrementStatuses(playerId) {
         unit.statuses[key] -= 1;
         if (unit.statuses[key] <= 0) {
           delete unit.statuses[key];
+          if (key === "koffieboost") {
+            const boosts = unit.koffieBoostSources || [];
+            boosts.forEach((boost) => {
+              unit.speed = Math.max(0, unit.speed - (boost.speed || 0));
+              unit.damageMultiplier = (unit.damageMultiplier || 1) / (boost.damageMultiplier || 1);
+            });
+            unit.koffieBoostSources = [];
+            addLog(`Koffieboost op ${unit.name} loopt af.`);
+          }
+          if (key === "koffieCrash") {
+            const crashes = unit.koffieCrashSources || [];
+            crashes.forEach((crash) => {
+              unit.speed = Math.max(0, unit.speed - (crash.speed || 0));
+              unit.damageMultiplier = (unit.damageMultiplier || 1) / (crash.damageMultiplier || 1);
+            });
+            unit.koffieCrashSources = [];
+            addLog(`Crash op ${unit.name} loopt af.`);
+          }
           if (key === "krabRaveControl" && unit.originalOwnerBeforeKrabRave) {
             const oldOwner = unit.owner;
             unit.owner = unit.originalOwnerBeforeKrabRave;
@@ -560,6 +594,7 @@ export function decrementStatuses(playerId) {
       if (unit.hookCooldownRemaining > 0) unit.hookCooldownRemaining -= 1;
       if (unit.mercyReviveCooldownRemaining > 0) unit.mercyReviveCooldownRemaining -= 1;
       if (unit.gustavMoveCooldown > 0) unit.gustavMoveCooldown -= 1;
+      if (unit.cardId === "koffieautomaat") unit.koffieUsesThisTurn = 0;
       Object.keys(unit.attackCooldowns || {}).forEach((key) => {
         unit.attackCooldowns[key] -= 1;
         if (unit.attackCooldowns[key] <= 0) delete unit.attackCooldowns[key];
@@ -643,6 +678,9 @@ function runUpkeep(playerId) {
   drawCards(player.id, HAND_SIZE - player.hand.length);
   applyBasePressure(player.id);
   spawnQueenAnts(player.id);
+  applyPolitiekeSteun(player.id);
+  applyManagerContracts(player.id);
+  applyTheeBurn(player.id);
   state.units
     .forEach((unit) => {
       if (unit.cardId === "iron-titan") unit.ignoredFirstHitThisTurn = false;
@@ -651,6 +689,7 @@ function runUpkeep(playerId) {
       unit.hasAttackedThisTurn = false;
       unit.hasUsedAbilityThisTurn = false;
       unit.wasAttackedThisTurn = false;
+      unit.damageTakenThisTurn = 0;
       unit.extraMoveAvailable = false;
     });
   decrementStatuses(player.id);
@@ -672,6 +711,74 @@ function spawnQueenAnts(playerId) {
       }
       spots.forEach((spot) => spawnAntToken(playerId, spot.x, spot.y, 1));
       addLog(`Mierenkolonie spawnt ${spots.length} Mier${spots.length === 1 ? "" : "en"} x1 rond de Mierenkoningin.`);
+    });
+}
+
+function applyPolitiekeSteun(playerId) {
+  const politici = state.units.filter((unit) => unit.owner === playerId && unit.cardId === "politicus" && !isPetrified(unit));
+  state.units
+    .filter((unit) => unit.owner === playerId && unit.type === "unit" && unit.cardId !== "politicus")
+    .forEach((unit) => {
+      const supporter = politici.find((politicus) => Math.abs(politicus.x - unit.x) <= 1 && Math.abs(politicus.y - unit.y) <= 1);
+      const currentSupporterAlive = unit.supportedByPoliticusId && getUnit(unit.supportedByPoliticusId);
+      if (!supporter) {
+        if (!currentSupporterAlive && unit.politiekeSteunShield) {
+          unit.attachedShield = Math.max(0, (unit.attachedShield || 0) - unit.politiekeSteunShield);
+          unit.maxAttachedShield = Math.max(0, (unit.maxAttachedShield || 0) - unit.politiekeSteunShield);
+          unit.politiekeSteunShield = 0;
+          unit.supportedByPoliticusId = null;
+        }
+        return;
+      }
+      const desiredShield = Math.floor((unit.maxHp || 0) * 0.1);
+      const currentShield = unit.politiekeSteunShield || 0;
+      if (desiredShield > currentShield) {
+        const gained = desiredShield - currentShield;
+        unit.attachedShield = (unit.attachedShield || 0) + gained;
+        unit.maxAttachedShield = (unit.maxAttachedShield || 0) + gained;
+      } else if (desiredShield < currentShield) {
+        const lost = currentShield - desiredShield;
+        unit.attachedShield = Math.max(0, (unit.attachedShield || 0) - lost);
+        unit.maxAttachedShield = Math.max(0, (unit.maxAttachedShield || 0) - lost);
+      }
+      unit.politiekeSteunShield = desiredShield;
+      unit.supportedByPoliticusId = supporter.unitId;
+    });
+}
+
+function applyManagerContracts(playerId) {
+  state.units.slice()
+    .filter((unit) => unit.owner === playerId && unit.statuses.managerBuff && !isPetrified(unit))
+    .forEach((unit) => {
+      const manager = getUnit(unit.managerBuffSourceId);
+      const damage = Math.floor((unit.maxHp || 0) * 0.1);
+      if (damage <= 0) return;
+      applyStatusDamage(unit, damage, "Burn-out Contract");
+      if (!isUnitAlive(unit)) removeUnit(unit, manager || null);
+      if (manager && (manager.maxHp || 0) > 0) {
+        const before = manager.hp;
+        manager.hp = Math.min(manager.maxHp, manager.hp + damage);
+        addLog(`Burn-out Contract: ${unit.name} verliest ${damage} HP en Manager healt ${manager.hp - before}.`);
+      } else {
+        addLog(`Burn-out Contract: ${unit.name} verliest ${damage} HP.`);
+      }
+    });
+}
+
+function applyTheeBurn(playerId) {
+  state.units.slice()
+    .filter((unit) => unit.owner === playerId && unit.theeBurnStacks?.length)
+    .forEach((unit) => {
+      const stacks = unit.theeBurnStacks.filter((turns) => turns > 0);
+      if (!stacks.length) {
+        unit.theeBurnStacks = [];
+        return;
+      }
+      const damage = stacks.length * 25;
+      applyStatusDamage(unit, damage, "Thee Burn");
+      if (!isUnitAlive(unit)) removeUnit(unit);
+      unit.theeBurnStacks = stacks.map((turns) => turns - 1).filter((turns) => turns > 0);
+      addLog(`${unit.name} krijgt ${damage} Thee Burn damage (${stacks.length} stack${stacks.length === 1 ? "" : "s"}).`);
     });
 }
 
