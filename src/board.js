@@ -706,6 +706,7 @@ function renderAuraBadges(unit) {
   if (unit.statuses.koffieboost) badges.push(`<span class="status-badge aura-badge coffee">+SPD</span>`);
   if (unit.statuses.koffieCrash) badges.push(`<span class="status-badge aura-badge crash">CRASH</span>`);
   if (unit.statuses.revealed) badges.push(`<span class="status-badge aura-badge reveal">REV</span>`);
+  if (unit.statuses.intimidated) badges.push(`<span class="status-badge aura-badge crash">INT</span>`);
   if (unit.theeBurnStacks?.length) badges.push(`<span class="status-badge aura-badge burn">TEA</span>`);
   if (unit.statuses.hitted) badges.push(`<span class="status-badge aura-badge hit">HIT</span>`);
   const hasRaidBanner = unit.tags?.some((tag) => tag === "summon" || tag === "token")
@@ -1402,7 +1403,7 @@ export function getValidAbilityTargets(unit) {
 
 function hasActiveAbility(unit) {
   if (isPetrified(unit)) return false;
-  return ["thanos", "junkrat", "orisa", "roadhog", "jet", "mercy", "takel-heli", "sigma", "medic-drone", "creeper", "eye-of-cthulhu", "pillager-captain", "necromancer", "alchemist", "business-vampire", "mierenkoningin", "schwerer-gustav", "koffieautomaat", "manager", "maarschalk"].includes(unit.cardId);
+  return ["thanos", "junkrat", "orisa", "roadhog", "jet", "mercy", "takel-heli", "sigma", "medic-drone", "creeper", "eye-of-cthulhu", "pillager-captain", "necromancer", "alchemist", "business-vampire", "mierenkoningin", "schwerer-gustav", "koffieautomaat", "manager", "maarschalk", "t-rex"].includes(unit.cardId);
 }
 
 export function getValidSpellTargets(card) {
