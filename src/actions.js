@@ -174,12 +174,22 @@ export function moveUnit(unit, x, y) {
   if (canEnterFriendlyBuilding) enterBuilding(unit, friendlyBuilding);
   unit.hasMovedThisTurn = true;
   if (usingExtraMove) unit.extraMoveAvailable = false;
-  if (!unit.tags?.includes("no-claim")) path.forEach((spot) => claimTerritory(unit.owner, spot.y, spot.x));
+  if (unit.cardId === "stratego-verkenner") {
+    for (let yy = y - 1; yy <= y + 1; yy += 1) {
+      for (let xx = x - 1; xx <= x + 1; xx += 1) claimTerritory(unit.owner, yy, xx);
+    }
+  } else if (!unit.tags?.includes("no-claim")) {
+    path.forEach((spot) => claimTerritory(unit.owner, spot.y, spot.x));
+  }
   if (isAntToken(unit)) mergeFriendlyAntsOnTile(unit);
   else resolveAntStomp(unit);
   if (unit.cardId === "medusa") resolveMedusaPetrify(unit);
   if (unit.cardId === "the-rook") resolveCastleCharge(unit, chargeTargets);
   if (unit.cardId === "schwerer-gustav") unit.gustavMoveCooldown = 2;
+  if (unit.cardId === "stratego-maarschalk" && unit.statuses.hitted) {
+    applyDamage(unit, 100, unit, { ignoreShield: true, ignoreTitanHide: true, attackName: "hitted-move" });
+    addLog("Maarschalk loopt terwijl hij Hitted is en verliest 100 HP.");
+  }
   if (isOwnBaseTile && hasEnemy) {
     addLog(`${unit.name} beweegt naar de eigen base en contest de enemy.`);
   } else {
@@ -343,6 +353,7 @@ export function canEnterEnemyOccupiedTile() {
 
 export function isSmilerUntargetableBy(attacker, target) {
   if (!attacker || !target || target.cardId !== "smiler" || attacker.owner === target.owner) return false;
+  if (target.statuses.revealed) return false;
   const tile = tileAt(target.x, target.y);
   return !!tile && tile.territoryOwner === target.owner && !tile.isProtectedBaseZone;
 }
@@ -353,6 +364,8 @@ export function canAttack(attacker, target) {
   if (attacker.hasAttackedThisTurn) return false;
   if (attacker.statuses.stunned || attacker.statuses.cannotAct || attacker.statuses.cannotAttack) return false;
   if (isSmilerUntargetableBy(attacker, target)) return false;
+  if (target.cardId === "politicus" && getPlayer(attacker.owner).energy < 1) return false;
+  if (target.cardId === "boze-oma" && distance(attacker, target) >= 2) return false;
   const attack = chooseAttack(attacker, target);
   if (!attack) return false;
   const sameTileOccupants = unitsAt(attacker.x, attacker.y);
@@ -370,7 +383,9 @@ export function canAttack(attacker, target) {
   if (attacker.cardId === "knight" && attack.lunge) {
     if (!canKnightLunge(attacker, target)) return false;
   }
-  if (attack.name === "melee" || (!attacker.tags?.includes("ranged") && attacker.tags?.includes("melee"))) {
+  if (attacker.cardId === "duif-met-mes" && attack.lunge && distance(attacker, target) !== 1) return false;
+  const attackActsAsMelee = attack.name === "melee" || ((attack.range || 0) === 0 && !attacker.tags?.includes("ranged") && attacker.tags?.includes("melee"));
+  if (attackActsAsMelee) {
     if (distance(attacker, target) !== 0 && !attack.lunge) return false;
   } else if (rangedDistance(attacker, target) > attack.range) {
     return false;
@@ -408,7 +423,8 @@ export function canAttackBase(attacker, target, attack = chooseAttack(attacker, 
   const column = Number.isInteger(target.targetColumn) ? target.targetColumn : attacker.x;
   const blockers = getBaseTileBlockers(attacker, column, row);
   if (blockers.length) return false;
-  if (attack.name === "melee" || (!attacker.tags?.includes("ranged") && attacker.tags?.includes("melee"))) {
+  const attackActsAsMelee = attack.name === "melee" || ((attack.range || 0) === 0 && !attacker.tags?.includes("ranged") && attacker.tags?.includes("melee"));
+  if (attackActsAsMelee) {
     return attacker.y === row && attacker.x === column;
   }
   if (attacker.cardId === "schwerer-gustav") return isValidGustavTarget(attacker, column, row);
@@ -439,6 +455,19 @@ export function chooseAttack(attacker, target) {
       : { name: "BRRRRT", damage: 25, range: 2, hits: 10 };
   }
   if (attacker.cardId === "schwerer-gustav") return { name: "siege", damage: 400, range: 5, minRange: 2, areaDamage: 200, areaRadius: 1, lineOnly: true, ignoresLineBlockers: true };
+  if (attacker.cardId === "manager") {
+    const totalFriendlyBuffDamage = state.units
+      .filter((unit) => unit.owner === attacker.owner && unit.statuses.managerBuff)
+      .flatMap((unit) => unit.attacks || [])
+      .reduce((sum, attack) => sum + ((attack.damage || 0) * (attack.hits || 1)), 0);
+    return { name: "prestatiegesprek", damage: Math.floor(totalFriendlyBuffDamage * 0.7), range: 3 };
+  }
+  if (attacker.cardId === "maandagochtend-medewerker") return { name: "melee", damage: 100 + Math.max(0, (attacker.maxHp || 0) - (attacker.hp || 0)), range: 0 };
+  if (attacker.cardId === "duif-met-mes") {
+    const bonus = target && target.hp < target.maxHp ? 50 : 0;
+    return { name: "mesduik", damage: 200 + bonus, range: 1, lunge: true, duifDive: true };
+  }
+  if (attacker.cardId === "stratego-maarschalk" && attacker.statuses.maarschalkRangeBuff) return { name: "maarschalkslag", damage: 500, range: 1 };
   if (attacker.cardId === "jet") return { name: "ranged", damage: target.tags?.includes("flying") ? 350 : 50, range: 1 };
   if (attacker.cardId === "wall-wrecker" && (target.tags?.includes("bunker") || target.role === "bunker")) return { name: "melee", damage: 150, range: 0, hits: 2 };
   if (attacker.cardId === "wall-wrecker" && target.type === "building") return { name: "melee", damage: 150, range: 0 };
@@ -569,6 +598,13 @@ export function attackUnit(attacker, target) {
     return false;
   }
   const attack = chooseAttack(attacker, target);
+  if (target.cardId === "politicus") {
+    if (!spendEnergy(1)) {
+      addLog("Tax: je hebt 1 energie nodig om Politicus direct te targeten.");
+      return false;
+    }
+    addLog("Tax: 1 energie betaald om Politicus direct te targeten.");
+  }
   if ((attacker.attackCooldowns?.[attack.name] || 0) > 0) {
     addLog(`${attacker.name} kan deze aanval nog niet opnieuw gebruiken.`);
     return false;
@@ -585,7 +621,8 @@ export function attackUnit(attacker, target) {
   if (attack.lunge) {
     attacker.x = target.x;
     attacker.y = target.y;
-    addLog(`Knight lunges naar ${target.name} en doet 250 damage.`);
+    if (attacker.cardId === "knight") addLog(`Knight lunges naar ${target.name} en doet 250 damage.`);
+    if (attacker.cardId === "duif-met-mes") addLog(`Duif met Mes duikt naar ${target.name}.`);
   }
   let totalDamageForHealing = 0;
   if (attacker.cardId === "schwerer-gustav") {
@@ -686,6 +723,33 @@ export function attackUnit(attacker, target) {
     attacker.hasAttackedThisTurn = false;
     addLog("Knight maakt een Chain Kill en mag opnieuw aanvallen.");
   }
+  if (attacker.cardId === "duif-met-mes") {
+    attacker.statuses.grounded = Math.max(attacker.statuses.grounded || 0, 2);
+    if (!getUnit(target.unitId) && target.type === "unit") {
+      attacker.extraMoveAvailable = true;
+      attacker.hasMovedThisTurn = false;
+      addLog("Duif met Mes maakt een kill en mag 1 vakje extra bewegen.");
+    }
+    addLog("Duif met Mes is grounded tot zijn volgende upkeep.");
+  }
+  if (attacker.cardId === "stratego-verkenner" && getUnit(target.unitId)) {
+    target.statuses.revealed = Math.max(target.statuses.revealed || 0, 3);
+    addLog(`${target.name} is Revealed voor 2 beurten.`);
+  }
+  if (attacker.cardId === "boze-oma" && getUnit(target.unitId)) {
+    target.theeBurnStacks = target.theeBurnStacks || [];
+    target.theeBurnStacks.push(3);
+    addLog(`${target.name} krijgt Thee Burn voor 3 upkeep ticks.`);
+  }
+  if (attacker.cardId === "stratego-maarschalk" && target.type !== "base") {
+    const echoTarget = getUnit(target.unitId)
+      ? target
+      : unitsAt(target.x, target.y).find((unit) => unit.owner !== attacker.owner && unit.type !== "base");
+    if (echoTarget) {
+      applyDamage(echoTarget, 250, attacker, { attackName: "echo" });
+      addLog(`Maarschalk Echo Attack doet 250 damage op ${echoTarget.name}.`);
+    }
+  }
   if (attacker.cardId === "geertje" && totalDamageForHealing > 0) {
     const summonId = Math.random() < 0.5 ? "turk" : "marokkaan";
     const summon = spawnSummonNear(summonId, attacker.owner, target.x, target.y);
@@ -705,7 +769,11 @@ export function attackUnit(attacker, target) {
     addLog("Arrest Bonus: GTA Cop geeft +1 energie volgende beurt.");
   }
   if (attacker.cardId === "smiler" && getUnit(target.unitId)) {
-    target.statuses.stunned = Math.max(target.statuses.stunned || 0, 2);
+    if (target.cardId === "stratego-maarschalk" && (attacker.cost || 0) <= 3) {
+      addLog("Maarschalk negeert stun van een unit met cost 3 of lager.");
+    } else {
+      target.statuses.stunned = Math.max(target.statuses.stunned || 0, 2);
+    }
     attacker.extraMoveAvailable = true;
     attacker.hasMovedThisTurn = false;
     addLog("Smiler kan na zijn Jumpscare nog weglopen.");
@@ -732,6 +800,10 @@ export function attackUnit(attacker, target) {
   if (!isPetrified(target) && target.cardId === "electro-giant" && attacker.unitId !== target.unitId && distance(attacker, target) <= 1) {
     applyDamage(attacker, Math.min(150, 50 * hits), target);
     addLog(`${attacker.name} krijgt return damage van Electro Giant.`);
+  }
+  if (!isPetrified(target) && target.cardId === "boze-oma" && getUnit(attacker.unitId) && distance(attacker, target) <= 1 && !attacker.tags?.includes("flying")) {
+    applyDamage(attacker, 200, target, { ignoreShield: true, ignoreTitanHide: true, attackName: "counter" });
+    addLog("Boze Oma doet 200 true Counter Damage terug.");
   }
   return true;
 }
@@ -824,6 +896,12 @@ export function applyDamage(target, amount, attacker = null, options = {}) {
   if (!target || amount <= 0) return;
   target.lastDamageAmount = 0;
   target.lastDamageAttackerId = attacker?.unitId || null;
+  if (target.theeBurnStacks?.length && options.sourceName !== "Thee Burn" && options.attackName !== "thee-burn") {
+    amount = Math.floor(amount * 1.2);
+  }
+  if (target.statuses?.revealed) {
+    amount = Math.floor(amount * 1.25);
+  }
   if (target.cardId === "enderman" && attacker && options.attackName && options.attackName !== "melee" && distance(attacker, target) > 0) {
     addLog("Enderman krijgt 0 damage: hij ontwijkt de ranged attack en teleporteert weg.");
     teleportUnitRandomly(target, 2);
@@ -864,6 +942,7 @@ export function applyDamage(target, amount, attacker = null, options = {}) {
     const before = target.attachedShield;
     target.attachedShield = Math.max(0, target.attachedShield - amount);
     target.lastDamageAmount = Math.min(before, amount);
+    trackDamageTakenThisTurn(target, target.lastDamageAmount);
     addLog(`${target.name}'s extra shield blokt de hit (${before} -> ${target.attachedShield}).`);
     return;
   }
@@ -871,6 +950,7 @@ export function applyDamage(target, amount, attacker = null, options = {}) {
     const before = target.shield;
     target.shield = Math.max(0, target.shield - amount);
     target.lastDamageAmount = Math.min(before, amount);
+    trackDamageTakenThisTurn(target, target.lastDamageAmount);
     addLog(`${target.name}'s shield blokt de hit (${before} -> ${target.shield}).`);
     if (target.shield <= 0 && (target.tags?.includes("barrier") || (target.maxHp || 0) <= 0)) removeUnit(target, attacker);
     return;
@@ -887,6 +967,7 @@ export function applyDamage(target, amount, attacker = null, options = {}) {
     return;
   }
   target.lastDamageAmount = amount;
+  trackDamageTakenThisTurn(target, amount);
   target.hp -= amount;
   if (target.hp <= 0) removeUnit(target, attacker);
   else {
@@ -904,6 +985,14 @@ export function applyDamage(target, amount, attacker = null, options = {}) {
       addLog("Enderman gebruikt Ender Blink na de melee hit.");
       teleportUnitRandomly(target, 2);
     }
+  }
+}
+
+function trackDamageTakenThisTurn(target, amount) {
+  if (!target || amount <= 0) return;
+  target.damageTakenThisTurn = (target.damageTakenThisTurn || 0) + amount;
+  if (target.cardId === "stratego-maarschalk" && target.damageTakenThisTurn >= 150) {
+    target.statuses.hitted = Math.max(target.statuses.hitted || 0, 1);
   }
 }
 
@@ -1016,7 +1105,7 @@ export function activateAbility(unit, target = null) {
     return false;
   }
   const abilityCost = unit.abilityCost ?? 1;
-  if (unit.hasUsedAbilityThisTurn) {
+  if (unit.hasUsedAbilityThisTurn && unit.cardId !== "koffieautomaat") {
     addLog(`${unit.name} heeft deze beurt al een ability gebruikt.`);
     return false;
   }
@@ -1031,7 +1120,7 @@ export function activateAbility(unit, target = null) {
   const used = useUnitAbility(unit, target);
   if (used) {
     spendEnergy(abilityCost);
-    unit.hasUsedAbilityThisTurn = true;
+    if (unit.cardId !== "koffieautomaat") unit.hasUsedAbilityThisTurn = true;
   }
   return used;
 }
