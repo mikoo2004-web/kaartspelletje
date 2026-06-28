@@ -1,4 +1,4 @@
-import { cardById } from "./cards.js";
+import { cardById } from "./cards.js?v=verkenner-image-1";
 import { addLog, claimTerritory, createUnit, drawCards, getBase, getEnemyPlayerId, getPlayer, getUnit, isAntToken, isInsideBoard, isPetrified, MAX_ENERGY, petrifyUnitByMedusa, removeUnit, spawnSummonNear, spendEnergy, state, syncAntStats, tileAt, unitsAt } from "./gameState.js";
 import { useHealAbility, useSpell, useUnitAbility } from "./effects.js";
 
@@ -174,7 +174,7 @@ export function moveUnit(unit, x, y) {
   if (canEnterFriendlyBuilding) enterBuilding(unit, friendlyBuilding);
   unit.hasMovedThisTurn = true;
   if (usingExtraMove) unit.extraMoveAvailable = false;
-  if (unit.cardId === "stratego-verkenner") {
+  if (unit.cardId === "verkenner") {
     for (let yy = y - 1; yy <= y + 1; yy += 1) {
       for (let xx = x - 1; xx <= x + 1; xx += 1) claimTerritory(unit.owner, yy, xx);
     }
@@ -186,7 +186,7 @@ export function moveUnit(unit, x, y) {
   if (unit.cardId === "medusa") resolveMedusaPetrify(unit);
   if (unit.cardId === "the-rook") resolveCastleCharge(unit, chargeTargets);
   if (unit.cardId === "schwerer-gustav") unit.gustavMoveCooldown = 2;
-  if (unit.cardId === "stratego-maarschalk" && unit.statuses.hitted) {
+  if (unit.cardId === "maarschalk" && unit.statuses.hitted) {
     applyDamage(unit, 100, unit, { ignoreShield: true, ignoreTitanHide: true, attackName: "hitted-move" });
     addLog("Maarschalk loopt terwijl hij Hitted is en verliest 100 HP.");
   }
@@ -467,7 +467,7 @@ export function chooseAttack(attacker, target) {
     const bonus = target && target.hp < target.maxHp ? 50 : 0;
     return { name: "mesduik", damage: 200 + bonus, range: 1, lunge: true, duifDive: true };
   }
-  if (attacker.cardId === "stratego-maarschalk" && attacker.statuses.maarschalkRangeBuff) return { name: "maarschalkslag", damage: 500, range: 1 };
+  if (attacker.cardId === "maarschalk" && attacker.statuses.maarschalkRangeBuff) return { name: "maarschalkslag", damage: 500, range: 1 };
   if (attacker.cardId === "jet") return { name: "ranged", damage: target.tags?.includes("flying") ? 350 : 50, range: 1 };
   if (attacker.cardId === "wall-wrecker" && (target.tags?.includes("bunker") || target.role === "bunker")) return { name: "melee", damage: 150, range: 0, hits: 2 };
   if (attacker.cardId === "wall-wrecker" && target.type === "building") return { name: "melee", damage: 150, range: 0 };
@@ -732,7 +732,7 @@ export function attackUnit(attacker, target) {
     }
     addLog("Duif met Mes is grounded tot zijn volgende upkeep.");
   }
-  if (attacker.cardId === "stratego-verkenner" && getUnit(target.unitId)) {
+  if (attacker.cardId === "verkenner" && getUnit(target.unitId)) {
     target.statuses.revealed = Math.max(target.statuses.revealed || 0, 3);
     addLog(`${target.name} is Revealed voor 2 beurten.`);
   }
@@ -741,7 +741,7 @@ export function attackUnit(attacker, target) {
     target.theeBurnStacks.push(3);
     addLog(`${target.name} krijgt Thee Burn voor 3 upkeep ticks.`);
   }
-  if (attacker.cardId === "stratego-maarschalk" && target.type !== "base") {
+  if (attacker.cardId === "maarschalk" && target.type !== "base") {
     const echoTarget = getUnit(target.unitId)
       ? target
       : unitsAt(target.x, target.y).find((unit) => unit.owner !== attacker.owner && unit.type !== "base");
@@ -769,7 +769,7 @@ export function attackUnit(attacker, target) {
     addLog("Arrest Bonus: GTA Cop geeft +1 energie volgende beurt.");
   }
   if (attacker.cardId === "smiler" && getUnit(target.unitId)) {
-    if (target.cardId === "stratego-maarschalk" && (attacker.cost || 0) <= 3) {
+    if (target.cardId === "maarschalk" && (attacker.cost || 0) <= 3) {
       addLog("Maarschalk negeert stun van een unit met cost 3 of lager.");
     } else {
       target.statuses.stunned = Math.max(target.statuses.stunned || 0, 2);
@@ -991,7 +991,7 @@ export function applyDamage(target, amount, attacker = null, options = {}) {
 function trackDamageTakenThisTurn(target, amount) {
   if (!target || amount <= 0) return;
   target.damageTakenThisTurn = (target.damageTakenThisTurn || 0) + amount;
-  if (target.cardId === "stratego-maarschalk" && target.damageTakenThisTurn >= 150) {
+  if (target.cardId === "maarschalk" && target.damageTakenThisTurn >= 150) {
     target.statuses.hitted = Math.max(target.statuses.hitted || 0, 1);
   }
 }
