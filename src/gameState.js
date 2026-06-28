@@ -580,6 +580,12 @@ export function decrementStatuses(playerId) {
             unit.koffieCrashSources = [];
             addLog(`Crash op ${unit.name} loopt af.`);
           }
+          if (key === "intimidated") {
+            unit.speed += unit.intimidatedSpeedPenalty || 0;
+            delete unit.intimidatedSpeedPenalty;
+            unit.damageMultiplier = (unit.damageMultiplier || 1) / 0.75;
+            addLog(`Intimidated op ${unit.name} loopt af.`);
+          }
           if (key === "krabRaveControl" && unit.originalOwnerBeforeKrabRave) {
             const oldOwner = unit.owner;
             unit.owner = unit.originalOwnerBeforeKrabRave;
