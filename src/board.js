@@ -559,6 +559,7 @@ function renderBoard() {
         cell.dataset.baseMarker = "🏰";
       }
       const units = unitsAt(x, y);
+      decorateAura(cell, x, y, selected);
       if (units.length) cell.appendChild(renderUnitsStack(units));
       decorateTerritory(cell, x, y);
       decorateCell(cell, x, y, validMoves, validAttacks, validBaseAttacks, validAbilityTargets, placingCard, validSpellTargets, validGustavTiles);
@@ -588,6 +589,44 @@ function decorateTerritory(cell, x, y) {
   if (!tile) return;
   cell.classList.add(`territory-${tile.territoryOwner || "neutral"}`);
   if (tile.isProtectedBaseZone) cell.classList.add(`protected-p${tile.protectedForPlayer}`);
+}
+
+const auraDefinitions = [
+  { cardId: "politicus", radius: 1, className: "aura-politics", label: "+SH", title: "Politieke Steun: friendly units krijgen shield." },
+  { cardId: "koffieautomaat", radius: 1, className: "aura-coffee", label: "+SPD", title: "Koffieboost range: friendly unit kan speed/damage boost krijgen." },
+  { cardId: "manager", radius: 3, className: "aura-manager", label: "+DMG", title: "Motiverende Speech range: friendly unit kan permanent damage/speed krijgen." },
+  { cardId: "mierenkoningin", radius: 1, className: "aura-summon", label: "SUM", title: "Mierenkoningin spawnt mieren rondom haar." },
+  { cardId: "pillager-captain", radius: 1, className: "aura-raid", label: "+ATK", title: "Raid Banner: summons/tokens in dit gebied krijgen attack bonus." },
+  { cardId: "necromancer", radius: 1, className: "aura-necro", label: "BONE", title: "Necromancer support range voor tokens en summons." },
+  { cardId: "alchemist", radius: 1, className: "aura-alchemy", label: "POT", title: "Alchemist potion range voor friendly units." },
+  { cardId: "mercy", radius: 1, className: "aura-heal", label: "HEAL", title: "Mercy heal/revive support range." },
+  { cardId: "pam", radius: 1, className: "aura-heal", label: "HEAL", title: "Pam area-heal range." },
+  { cardId: "orisa", radius: 1, className: "aura-barrier", label: "BAR", title: "Orisa Barrier placement range." },
+  { cardId: "sigma", radius: 1, className: "aura-barrier", label: "BAR", title: "Sigma Barrier placement range." },
+  { cardId: "maarschalk", radius: 1, className: "aura-command", label: "CMD", title: "Maarschalk command range voor ranged units." }
+];
+
+function decorateAura(cell, x, y, selected = null) {
+  const auras = getAuraInfoForTile(x, y);
+  if (!auras.length) return;
+  cell.classList.add("has-aura");
+  auras.forEach((aura) => cell.classList.add(aura.className));
+  if (selected && auras.some((aura) => aura.sourceId === selected.unitId)) cell.classList.add("selected-aura");
+  const strongest = auras.find((aura) => aura.sourceId === selected?.unitId) || auras[0];
+  cell.title = [cell.title, ...auras.map((aura) => aura.title)].filter(Boolean).join(" | ");
+  const badge = document.createElement("span");
+  badge.className = "aura-cell-label";
+  badge.textContent = auras.length > 1 ? `${strongest.label}+` : strongest.label;
+  cell.appendChild(badge);
+}
+
+function getAuraInfoForTile(x, y) {
+  return state.units.flatMap((unit) => {
+    if (unit.type === "base" || isPetrified(unit)) return [];
+    const definition = auraDefinitions.find((item) => item.cardId === unit.cardId);
+    if (!definition || distance(unit, { x, y }) > definition.radius) return [];
+    return [{ ...definition, sourceId: unit.unitId, owner: unit.owner }];
+  });
 }
 
 function decorateCell(cell, x, y, validMoves, validAttacks, validBaseAttacks, validAbilityTargets, placingCard, validSpellTargets, validGustavTiles = []) {
@@ -633,6 +672,7 @@ function renderUnit(unit) {
     unit.statuses.grounded ? `<span class="status-badge snow">SNOW</span>` : "",
     unit.carriedBuildingId ? `<span class="status-badge carry">CARRY</span>` : "",
     unit.carriedByUnitId ? `<span class="status-badge carry">HELD</span>` : "",
+    ...renderAuraBadges(unit),
     renderCooldownBadge(unit)
   ].join("");
   token.innerHTML = `
@@ -650,6 +690,21 @@ function renderUnit(unit) {
     handleCellClick(unit.x, unit.y, unit.unitId);
   });
   return token;
+}
+
+function renderAuraBadges(unit) {
+  const badges = [];
+  if (unit.politiekeSteunShield > 0) badges.push(`<span class="status-badge aura-badge shield">+SH</span>`);
+  if (unit.statuses.managerBuff) badges.push(`<span class="status-badge aura-badge manager">+DMG</span>`);
+  if (unit.statuses.koffieboost) badges.push(`<span class="status-badge aura-badge coffee">+SPD</span>`);
+  if (unit.statuses.koffieCrash) badges.push(`<span class="status-badge aura-badge crash">CRASH</span>`);
+  if (unit.statuses.revealed) badges.push(`<span class="status-badge aura-badge reveal">REV</span>`);
+  if (unit.theeBurnStacks?.length) badges.push(`<span class="status-badge aura-badge burn">TEA</span>`);
+  if (unit.statuses.hitted) badges.push(`<span class="status-badge aura-badge hit">HIT</span>`);
+  const hasRaidBanner = unit.tags?.some((tag) => tag === "summon" || tag === "token")
+    && state.units.some((source) => source.owner === unit.owner && source.cardId === "pillager-captain" && distance(source, unit) <= 1 && !isPetrified(source));
+  if (hasRaidBanner) badges.push(`<span class="status-badge aura-badge raid">+ATK</span>`);
+  return badges;
 }
 
 function renderHand() {
