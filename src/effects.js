@@ -267,9 +267,33 @@ export function useUnitAbility(unit, target = null) {
   if (unit.cardId === "koffieautomaat") return useKoffieboost(unit, target);
   if (unit.cardId === "manager") return useMotiverendeSpeech(unit, target);
   if (unit.cardId === "maarschalk") return useMaarschalkCommand(unit, target);
+  if (unit.cardId === "t-rex") return useTrexRoar(unit);
   if (unit.cardId === "nuke") return useNuke();
   if (unit.cardId === "mind-stone") return useMindStone();
   return fail("Deze ability is nog niet volledig geïmplementeerd.");
+}
+
+function useTrexRoar(unit) {
+  if (unit.cooldownRemaining > 0) return fail("Oerbrul zit nog op cooldown.");
+  const targets = state.units.filter((target) =>
+    target.owner !== unit.owner
+    && target.type === "unit"
+    && distance(unit, target) <= 1
+  );
+  if (!targets.length) return fail("Geen enemy units binnen range 1 voor Oerbrul.");
+
+  targets.forEach((target) => {
+    if (!target.statuses.intimidated) {
+      const speedPenalty = target.speed > 0 ? 1 : 0;
+      target.speed = Math.max(0, target.speed - speedPenalty);
+      target.intimidatedSpeedPenalty = speedPenalty;
+      target.damageMultiplier = (target.damageMultiplier || 1) * 0.75;
+    }
+    target.statuses.intimidated = Math.max(target.statuses.intimidated || 0, 2);
+  });
+  unit.cooldownRemaining = 3;
+  addLog(`T-Rex gebruikt Oerbrul. ${targets.length} enemy unit${targets.length === 1 ? "" : "s"} krijgen Intimidated.`);
+  return true;
 }
 
 function useKoffieboost(unit, target) {
