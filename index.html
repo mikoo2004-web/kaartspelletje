@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Turn-Based Kaartbordspel</title>
-    <link rel="stylesheet" href="src/styles.css?v=aura-zones-1" />
+    <link rel="stylesheet" href="src/styles.css?v=aura-zones-2" />
   </head>
   <body>
     <main class="app-shell">
@@ -50,6 +50,24 @@
             <div id="detailsPanel" class="details-panel">Nog niets geselecteerd.</div>
           </section>
 
+          <section class="panel-section buff-reference">
+            <h2>Buffs en debuffs</h2>
+            <div class="buff-grid">
+              <div><b>+SH</b><span>Politieke Steun: extra shield.</span></div>
+              <div><b>+SPD</b><span>Koffieboost: tijdelijk +1 speed en +20% damage.</span></div>
+              <div><b>CRASH</b><span>Na te veel koffie: -1 speed en -30% damage.</span></div>
+              <div><b>+DMG</b><span>Motiverende Speech: permanent +25% damage en +1 speed.</span></div>
+              <div><b>+ATK</b><span>Raid Banner: summons/tokens krijgen +50 attack damage.</span></div>
+              <div><b>REV</b><span>Revealed: geen stealth en 25% meer damage ontvangen.</span></div>
+              <div><b>TEA</b><span>Thee Burn: 25 damage per stack per upkeep.</span></div>
+              <div><b>HIT</b><span>Hitted: Maarschalk verliest HP als hij beweegt.</span></div>
+              <div><b>HEAL</b><span>Heal-zone van Mercy of Pam.</span></div>
+              <div><b>BAR</b><span>Barrier plaats-zone van Orisa of Sigma.</span></div>
+              <div><b>CMD</b><span>Maarschalk command-zone voor ranged units.</span></div>
+              <div><b>SUM</b><span>Summon/spawn-zone rond summoners.</span></div>
+            </div>
+          </section>
+
           <section class="panel-section">
             <h2>Battle log</h2>
             <div id="battleLog" class="battle-log"></div>
@@ -91,7 +109,7 @@
       </section>
     </main>
 
-    <script type="module" src="src/main.js?v=aura-zones-1"></script>
+    <script type="module" src="src/main.js?v=aura-zones-2"></script>
   </body>
 </html>
 
