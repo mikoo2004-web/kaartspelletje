@@ -1,4 +1,4 @@
-import { cardById } from "./cards.js";
+import { cardById } from "./cards.js?v=verkenner-image-1";
 import { applyDamage, distance } from "./actions.js";
 import { addLog, createUnit, getFreeOrthogonalSpot, getPlayer, getUnit, HAND_SIZE, isInsideBoard, MAX_ENERGY, removeUnit, spawnAntToken, spawnSummonNear, spawnTokenInArea, state, tileAt, unitsAt } from "./gameState.js";
 
@@ -218,7 +218,7 @@ export function useUnitAbility(unit, target = null) {
   if (unit.cardId === "schwerer-gustav") return useGustavSideTrack(unit, target);
   if (unit.cardId === "koffieautomaat") return useKoffieboost(unit, target);
   if (unit.cardId === "manager") return useMotiverendeSpeech(unit, target);
-  if (unit.cardId === "stratego-maarschalk") return useMaarschalkCommand(unit, target);
+  if (unit.cardId === "maarschalk") return useMaarschalkCommand(unit, target);
   if (unit.cardId === "nuke") return useNuke();
   if (unit.cardId === "mind-stone") return useMindStone();
   return fail("Deze ability is nog niet volledig geïmplementeerd.");
