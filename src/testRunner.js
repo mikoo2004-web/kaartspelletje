@@ -1,4 +1,4 @@
-import { cardById, cards } from "./cards.js";
+import { cardById, cards } from "./cards.js?v=verkenner-image-1";
 import { activateAbility, applyDamage, attackGustavTile, attackUnit, canAttack, makeBaseAttackTarget, moveUnit, playCard } from "./actions.js";
 import { useSpell, useUnitAbility } from "./effects.js";
 import { addLog, BASE_ENERGY_PER_TURN, claimTerritory, createUnit, discardCardForEndTurn, endTurn, getBase, getPlayer, HAND_SIZE, MAX_ENERGY, resetGame, skipEndTurnDiscard, spawnAntToken, state, tileAt } from "./gameState.js";
@@ -949,7 +949,7 @@ function testNewSupportCards() {
   expect(getPlayer(1).energy === 0, "Politicus Tax should spend 1 energy");
 
   clearNonBases();
-  const verkenner = addUnit("stratego-verkenner", 1, 4, 4);
+  const verkenner = addUnit("verkenner", 1, 4, 4);
   const smiler = addUnit("smiler", 2, 4, 4);
   expect(attackUnit(verkenner, smiler), "Verkenner should attack same-tile enemy");
   expect(smiler.statuses.revealed, "Verkenner attack should apply Revealed");
