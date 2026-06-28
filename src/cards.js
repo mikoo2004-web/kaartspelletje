@@ -50,6 +50,7 @@ export const availableImages = [
   "assets/cards/Pillager.jpg",
   "assets/cards/pumpkin shield.jpg",
   "assets/cards/rage.jpg",
+  "assets/cards/rex.jpg",
   "assets/cards/roadhog.jpg",
   "assets/cards/shield-breaker.jpg",
   "assets/cards/Schwerer Gustav.png",
@@ -124,7 +125,8 @@ export const manualImageMap = {
   verkenner: "assets/cards/verkenner.png",
   maarschalk: "assets/cards/maarschalk.png",
   manager: "assets/cards/manager.png",
-  politicus: "assets/cards/politicus.png"
+  politicus: "assets/cards/politicus.png",
+  "t-rex": "assets/cards/rex.jpg"
 };
 
 export function normalizeName(name = "") {
@@ -250,7 +252,8 @@ export const cards = [
   { id: "manager", name: "Manager", type: "unit", role: "risky-support", tags: ["unit", "support", "damage-boost", "speed-boost", "lifesteal", "scaling-damage"], maxHp: 1000, shield: 0, speed: 1, cost: 4, abilityCost: 0, attacks: [attack("prestatiegesprek", 0, 3)], abilityText: "Komt in play met 150/1000 HP. Ability: Motiverende Speech range 3, 1x per beurt, cost 0. Friendly unit krijgt permanent +25% damage en +1 speed, max 1 keer. Gebuffte units verliezen elke upkeep 10% max HP; Manager healt dat bedrag. Attack range 3: doet 70% van totale damage van friendly Motiverende Speech units." },
   { id: "maandagochtend-medewerker", name: "Maandagochtend Medewerker", type: "unit", role: "scaling-bruiser", tags: ["unit", "melee", "scaling-damage", "rage"], maxHp: 500, shield: 0, speed: 1, cost: 4, attacks: [attack("melee", 100, 0)], abilityText: "Passive: damage is 100 + ontbrekende HP. Bij 500 HP doet hij 100, bij 250 HP doet hij 350, bij 1 HP doet hij 599." },
   { id: "verkenner", name: "Verkenner", type: "unit", role: "scout-territory", tags: ["unit", "melee", "scout", "speed", "revealed", "territory"], maxHp: 150, shield: 0, speed: 5, cost: 2, attacks: [attack("melee", 50, 0)], abilityText: "Attack: 50 damage en geeft Revealed voor 2 beurten. Revealed: geen stealth/untargetable en 25% meer damage van alles. Movement: claimt een 3x3 area rondom zijn eindpositie." },
-  { id: "maarschalk", name: "Maarschalk", type: "unit", role: "boss-duelist", tags: ["unit", "melee", "tank", "boss", "duelist", "echo"], maxHp: 2000, shield: 0, speed: 1, cost: 10, abilityCost: 0, attacks: [attack("maarschalkslag", 500, 0)], abilityText: "Attack: 500 melee damage met Echo Attack voor 50% damage op hetzelfde target, of een andere enemy op hetzelfde vakje als de eerste dood is. Passive: kan niet gestunned worden door units cost 3 of lager. Als hij in 1 beurt 150 damage krijgt wordt hij Hitted; loopt hij dan, verliest hij na movement 100 HP. Ability: Ranged Buff Command. Friendly ranged unit in 3x3 kan deze beurt niet aanvallen; Maarschalk krijgt tijdelijk range 1 als hij nog niet heeft aangevallen." }
+  { id: "maarschalk", name: "Maarschalk", type: "unit", role: "boss-duelist", tags: ["unit", "melee", "tank", "boss", "duelist", "echo"], maxHp: 2000, shield: 0, speed: 1, cost: 10, abilityCost: 0, attacks: [attack("maarschalkslag", 500, 0)], abilityText: "Attack: 500 melee damage met Echo Attack voor 50% damage op hetzelfde target, of een andere enemy op hetzelfde vakje als de eerste dood is. Passive: kan niet gestunned worden door units cost 3 of lager. Als hij in 1 beurt 150 damage krijgt wordt hij Hitted; loopt hij dan, verliest hij na movement 100 HP. Ability: Ranged Buff Command. Friendly ranged unit in 3x3 kan deze beurt niet aanvallen; Maarschalk krijgt tijdelijk range 1 als hij nog niet heeft aangevallen." },
+  { id: "t-rex", name: "T-Rex", type: "unit", role: "tanky melee boss", tags: ["unit", "melee", "tank", "dinosaur", "roar", "boss"], maxHp: 1400, shield: 0, speed: 1, cost: 7, abilityCost: 1, attacks: [attack("Bite", 350, 0)], abilityText: "Ability: Oerbrul. Cost 1 energie, cooldown 3 eigen beurten. Alle enemy units binnen range 1 krijgen Intimidated voor 1 beurt: 25% minder damage en -1 speed tot einde van hun volgende beurt." }
 ];
 
 const abilityTargetTypes = {
@@ -279,6 +282,7 @@ const abilityTargetTypes = {
   "duif-met-mes": "none",
   manager: "friendlyUnit",
   maarschalk: "friendlyUnit",
+  "t-rex": "none",
   orisa: "tile",
   "krab-rave": "enemyUnit",
   "nyan-kat-regen": "tile",
