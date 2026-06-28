@@ -1,5 +1,5 @@
 import { cardById } from "./cards.js?v=verkenner-image-1";
-import { addLog, claimTerritory, createUnit, drawCards, getBase, getEnemyPlayerId, getPlayer, getUnit, isAntToken, isInsideBoard, isPetrified, MAX_ENERGY, petrifyUnitByMedusa, removeUnit, spawnSummonNear, spendEnergy, state, syncAntStats, tileAt, unitsAt } from "./gameState.js";
+import { addLog, claimTerritory, createUnit, drawCards, getBase, getEnemyPlayerId, getPlayer, getUnit, isAntToken, isInsideBoard, isPetrified, isStackingToken, MAX_ENERGY, petrifyUnitByMedusa, removeUnit, spawnSummonNear, spendEnergy, state, syncAntStats, tileAt, unitsAt } from "./gameState.js";
 import { useHealAbility, useSpell, useUnitAbility } from "./effects.js";
 
 export function distance(a, b) {
@@ -43,7 +43,7 @@ function greatestCommonDivisor(a, b) {
 export function isDeployCell(card, x, y) {
   if (x < 0 || x >= state.boardCols || y < 0 || y >= state.boardRows) return false;
   if (card.type === "building") return canPlaceBuilding(state.activePlayer, x, y);
-  if (unitsAt(x, y).some((unit) => !isAntToken(unit))) return false;
+  if (unitsAt(x, y).some((unit) => !isStackingToken(unit))) return false;
   if (card.tags?.includes("deploy-anywhere")) return true;
   return state.activePlayer === 1 ? y >= state.boardRows - 2 : y <= 1;
 }
@@ -128,11 +128,16 @@ export function moveUnit(unit, x, y) {
   }
   const antPath = isAntToken(unit) ? findAntPath(unit, x, y) : null;
   const occupants = unitsAt(x, y);
-  const blockingOccupants = occupants.filter((candidate) => !isAntToken(candidate));
+  const isStackingMover = isStackingToken(unit);
+  const blockingOccupants = occupants.filter((candidate) => {
+    if (isStackingToken(candidate)) return false;
+    if (isStackingMover && candidate.owner === unit.owner && candidate.type === "unit") return false;
+    return true;
+  });
   const friendlyBuilding = occupants.find((candidate) => candidate.owner === unit.owner && candidate.type === "building");
   const ownBase = blockingOccupants.find((candidate) => candidate.owner === unit.owner && candidate.type === "base");
   const isOwnBaseTile = !!ownBase;
-  const hasFriendlyBlocker = !isAntToken(unit) && blockingOccupants.some((candidate) =>
+  const hasFriendlyBlocker = blockingOccupants.some((candidate) =>
     candidate.owner === unit.owner
     && candidate.type !== "building"
     && candidate.type !== "base"
@@ -141,7 +146,7 @@ export function moveUnit(unit, x, y) {
   const hasEnemy = blockingOccupants.some((candidate) => candidate.owner !== unit.owner);
   const canEnterEnemySquare = hasEnemy && canEnterEnemyOccupiedTile(unit, isOwnBaseTile);
   const canEnterFriendlyBuilding = unit.cardId !== "the-rook" && friendlyBuilding && unit.type !== "building" && !friendlyBuilding.occupiedBy && !(friendlyBuilding.cardId === "wall-wrecker" && hasEnemy);
-  if (!isAntToken(unit) && (hasFriendlyBlocker || (friendlyBuilding && !canEnterFriendlyBuilding) || (blockingOccupants.length && !canEnterEnemySquare && !canEnterFriendlyBuilding))) {
+  if (!isStackingMover && (hasFriendlyBlocker || (friendlyBuilding && !canEnterFriendlyBuilding) || (blockingOccupants.length && !canEnterEnemySquare && !canEnterFriendlyBuilding))) {
     addLog("Dat vakje is bezet.");
     return false;
   }
