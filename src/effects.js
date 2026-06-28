@@ -216,9 +216,62 @@ export function useUnitAbility(unit, target = null) {
   if (unit.cardId === "business-vampire") return useBloodContract(unit, target);
   if (unit.cardId === "mierenkoningin") return useQueenSplit(unit);
   if (unit.cardId === "schwerer-gustav") return useGustavSideTrack(unit, target);
+  if (unit.cardId === "koffieautomaat") return useKoffieboost(unit, target);
+  if (unit.cardId === "manager") return useMotiverendeSpeech(unit, target);
+  if (unit.cardId === "stratego-maarschalk") return useMaarschalkCommand(unit, target);
   if (unit.cardId === "nuke") return useNuke();
   if (unit.cardId === "mind-stone") return useMindStone();
   return fail("Deze ability is nog niet volledig geïmplementeerd.");
+}
+
+function useKoffieboost(unit, target) {
+  if (!target || target.owner !== unit.owner || target.type === "base" || target.type === "building" || distance(unit, target) > 1) {
+    return fail("Koffieboost moet op een friendly non-building unit binnen range 1.");
+  }
+  const player = getPlayer(unit.owner);
+  const cost = unit.koffieUsesThisTurn || 0;
+  if (player.energy < cost) return fail(`Koffieboost kost nu ${cost} energie.`);
+  player.energy -= cost;
+  unit.koffieUsesThisTurn = cost + 1;
+  target.speed += 1;
+  target.damageMultiplier = (target.damageMultiplier || 1) * 1.2;
+  target.statuses.koffieboost = Math.max(target.statuses.koffieboost || 0, 2);
+  target.koffieBoostSources = target.koffieBoostSources || [];
+  target.koffieBoostSources.push({ speed: 1, damageMultiplier: 1.2 });
+  if (target.lastKoffieBoostTurn === state.turn - 1) {
+    target.speed = Math.max(0, target.speed - 1);
+    target.damageMultiplier = (target.damageMultiplier || 1) * 0.7;
+    target.statuses.koffieCrash = Math.max(target.statuses.koffieCrash || 0, 2);
+    target.koffieCrashSources = target.koffieCrashSources || [];
+    target.koffieCrashSources.push({ speed: -1, damageMultiplier: 0.7 });
+    addLog(`${target.name} krijgt Crash: -1 speed en -30% damage.`);
+  }
+  target.lastKoffieBoostTurn = state.turn;
+  addLog(`Koffieboost geeft ${target.name} tijdelijk +1 speed en +20% damage. Cost: ${cost}.`);
+  return true;
+}
+
+function useMotiverendeSpeech(unit, target) {
+  if (!target || target.owner !== unit.owner || target.type === "base" || target.type === "building" || distance(unit, target) > 3) {
+    return fail("Motiverende Speech moet op een friendly non-building unit binnen range 3.");
+  }
+  if (target.statuses.managerBuff) return fail(`${target.name} heeft al Motiverende Speech.`);
+  target.statuses.managerBuff = 999;
+  target.managerBuffSourceId = unit.unitId;
+  target.speed += 1;
+  target.damageMultiplier = (target.damageMultiplier || 1) * 1.25;
+  addLog(`Manager geeft ${target.name} Motiverende Speech: permanent +25% damage en +1 speed.`);
+  return true;
+}
+
+function useMaarschalkCommand(unit, target) {
+  if (!target || target.owner !== unit.owner || target.type === "base" || Math.abs(unit.x - target.x) > 1 || Math.abs(unit.y - target.y) > 1 || !target.tags?.includes("ranged")) {
+    return fail("Ranged Buff Command moet op een friendly ranged unit in 3x3.");
+  }
+  target.hasAttackedThisTurn = true;
+  if (!unit.hasAttackedThisTurn) unit.statuses.maarschalkRangeBuff = Math.max(unit.statuses.maarschalkRangeBuff || 0, 1);
+  addLog(`${target.name} geeft zijn aanval op. Maarschalk mag deze beurt met range 1 aanvallen.`);
+  return true;
 }
 
 export function useHealAbility(unit, target = null) {
