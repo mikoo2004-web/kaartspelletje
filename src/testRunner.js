@@ -24,6 +24,7 @@ const tests = [
   ["medusa", "Test Medusa", () => runOne("Medusa", testMedusa)],
   ["a10", "Test A-10", () => runOne("A-10 Thunderbolt", testA10)],
   ["stack-area", "Test Stack/Area/True Bunker", () => runOne("Stack/Area/True Bunker", testStackAreaTrueBunker)],
+  ["new-support-cards", "Test nieuwe supportkaarten", () => runOne("Nieuwe supportkaarten", testNewSupportCards)],
   ["abilities", "Test abilities", () => runOne("Abilities", testAbilities)]
 ];
 
@@ -64,6 +65,7 @@ function runAllTests() {
     runCase("Schwerer Gustav", testGustav),
     runCase("Medusa", testMedusa),
     runCase("A-10 Thunderbolt", testA10),
+    runCase("Nieuwe supportkaarten", testNewSupportCards),
     runCase("Abilities", testAbilities)
   ];
   showResults(results);
@@ -934,6 +936,45 @@ function testStackAreaTrueBunker() {
   sigmaPassenger.insideBuildingId = sigmaBarrier.unitId;
   applyDamage(sigmaPassenger, 100, null, { stackOrAreaDamage: true });
   expect(sigmaPassenger.hp === 300 && sigmaPassenger.shield === 0, "Sigma Barrier should not block Stack/Area Damage like True Bunker");
+}
+
+function testNewSupportCards() {
+  clearNonBases();
+  const politicus = addUnit("politicus", 2, 4, 4);
+  const attacker = addUnit("dart-monkey", 1, 4, 5);
+  setEnergy(1, 0);
+  expect(!canAttack(attacker, politicus), "Politicus Tax should block direct targeting without energy");
+  setEnergy(1, 1);
+  expect(attackUnit(attacker, politicus), "Politicus should be targetable after paying Tax");
+  expect(getPlayer(1).energy === 0, "Politicus Tax should spend 1 energy");
+
+  clearNonBases();
+  const verkenner = addUnit("stratego-verkenner", 1, 4, 4);
+  const smiler = addUnit("smiler", 2, 4, 4);
+  expect(attackUnit(verkenner, smiler), "Verkenner should attack same-tile enemy");
+  expect(smiler.statuses.revealed, "Verkenner attack should apply Revealed");
+
+  clearNonBases();
+  const manager = addUnit("manager", 1, 4, 4);
+  const ranged = addUnit("dart-monkey", 1, 4, 5);
+  expect(useUnitAbility(manager, ranged), "Manager should buff a friendly unit");
+  expect(ranged.statuses.managerBuff && ranged.speed === 3, "Motiverende Speech should add speed and status");
+  const enemy = addUnit("pam", 2, 4, 2);
+  expect(attackUnit(manager, enemy), "Manager should attack with scaling team damage");
+  expect(enemy.hp < enemy.maxHp, "Manager attack should deal damage after buffing a unit");
+
+  clearNonBases();
+  const koffie = addUnit("koffieautomaat", 1, 4, 4);
+  const worker = addUnit("maandagochtend-medewerker", 1, 4, 5);
+  setEnergy(1, 3);
+  expect(useUnitAbility(koffie, worker), "Koffieautomaat should boost adjacent friendly unit");
+  expect(worker.speed === 2 && worker.damageMultiplier > 1, "Koffieboost should add speed and damage");
+
+  clearNonBases();
+  const oma = addUnit("boze-oma", 2, 4, 4);
+  const melee = addUnit("steve", 1, 4, 4);
+  expect(attackUnit(melee, oma), "Boze Oma can be attacked from same tile");
+  expect(melee.hp < melee.maxHp || melee.shield < melee.baseShield, "Boze Oma should counter melee/range 1 attackers");
 }
 
 function testAbilities() {
