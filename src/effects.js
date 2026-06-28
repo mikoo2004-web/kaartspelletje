@@ -52,13 +52,7 @@ export function useSpell(card, x, y, targetUnitId = null) {
   }
   if (card.id === "nyan-kat-regen") {
     const useColumn = window.confirm("OK = kolom raken. Annuleren = rij raken.");
-    state.units.slice().forEach((unit) => {
-      if ((useColumn && unit.x === x) || (!useColumn && unit.y === y)) {
-        applyDamage(unit, unit.owner === playerId ? 100 : 200, null, { antDamageType: "area", sourceName: "Nyan Kat Regen", stackOrAreaDamage: true });
-      }
-    });
-    addLog(`Nyan Kat Regen raakt een hele ${useColumn ? "kolom" : "rij"}.`);
-    return true;
+    return useNyanKatRegen(x, y, playerId, useColumn);
   }
   if (card.id === "sneeuwstorm") {
     state.units.slice().forEach((unit) => {
@@ -102,6 +96,60 @@ export function useSpell(card, x, y, targetUnitId = null) {
 function fail(message) {
   addLog(message);
   return false;
+}
+
+function useNyanKatRegen(x, y, playerId, useColumn) {
+  if (nyanLineCrossesEnemyProtectedBase(x, y, playerId, useColumn)) {
+    return fail("Nyan Kat Regen mag geen rij/kolom raken die door enemy protected base territory loopt.");
+  }
+
+  const damagedTiles = new Set();
+  state.units.slice().forEach((unit) => {
+    if (unit.type !== "unit") return;
+    if (!((useColumn && unit.x === x) || (!useColumn && unit.y === y))) return;
+
+    const tileKey = `${unit.x},${unit.y}`;
+    applyDamage(unit, unit.owner === playerId ? 100 : 200, null, {
+      antDamageType: "area",
+      sourceName: "Nyan Kat Regen",
+      stackOrAreaDamage: true
+    });
+    if ((unit.lastDamageAmount || 0) > 0 || !getUnit(unit.unitId)) damagedTiles.add(tileKey);
+  });
+
+  let spawned = 0;
+  damagedTiles.forEach((key) => {
+    const [spawnX, spawnY] = key.split(",").map(Number);
+    if (spawnNyanKatToken(playerId, spawnX, spawnY)) spawned += 1;
+  });
+
+  addLog(`Nyan Kat Regen raakt een hele ${useColumn ? "kolom" : "rij"} en spawnt ${spawned} Nyan Kat-token(s).`);
+  return true;
+}
+
+function nyanLineCrossesEnemyProtectedBase(x, y, playerId, useColumn) {
+  const enemyId = playerId === 1 ? 2 : 1;
+  if (useColumn) {
+    for (let row = 0; row < state.boardRows; row += 1) {
+      if (tileAt(x, row)?.protectedForPlayer === enemyId) return true;
+    }
+    return false;
+  }
+  for (let col = 0; col < state.boardCols; col += 1) {
+    if (tileAt(col, y)?.protectedForPlayer === enemyId) return true;
+  }
+  return false;
+}
+
+function spawnNyanKatToken(playerId, x, y) {
+  if (!isInsideBoard(x, y)) return false;
+  if (unitsAt(x, y).some((unit) => unit.cardId === "nyan-kat-token")) return false;
+  const card = cardById["nyan-kat-token"];
+  if (!card) return false;
+  const token = createUnit(card, playerId, x, y);
+  token.isToken = true;
+  state.units.push(token);
+  return true;
 }
 
 function useWantedLevel(x, y) {
