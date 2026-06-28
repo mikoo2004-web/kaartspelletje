@@ -592,18 +592,18 @@ function decorateTerritory(cell, x, y) {
 }
 
 const auraDefinitions = [
-  { cardId: "politicus", radius: 1, className: "aura-politics", label: "+SH", title: "Politieke Steun: friendly units krijgen shield." },
+  { cardId: "politicus", radius: 1, shape: "square", className: "aura-politics", label: "+SH", title: "Politieke Steun 3x3: friendly units krijgen shield." },
   { cardId: "koffieautomaat", radius: 1, className: "aura-coffee", label: "+SPD", title: "Koffieboost range: friendly unit kan speed/damage boost krijgen." },
   { cardId: "manager", radius: 3, className: "aura-manager", label: "+DMG", title: "Motiverende Speech range: friendly unit kan permanent damage/speed krijgen." },
-  { cardId: "mierenkoningin", radius: 1, className: "aura-summon", label: "SUM", title: "Mierenkoningin spawnt mieren rondom haar." },
-  { cardId: "pillager-captain", radius: 1, className: "aura-raid", label: "+ATK", title: "Raid Banner: summons/tokens in dit gebied krijgen attack bonus." },
-  { cardId: "necromancer", radius: 1, className: "aura-necro", label: "BONE", title: "Necromancer support range voor tokens en summons." },
+  { cardId: "mierenkoningin", radius: 1, shape: "square", className: "aura-summon", label: "SUM", title: "Mierenkoningin 3x3: spawnt mieren rondom haar." },
+  { cardId: "pillager-captain", radius: 1, shape: "square", className: "aura-raid", label: "+ATK", title: "Raid Banner 3x3: summons/tokens krijgen attack bonus." },
+  { cardId: "necromancer", radius: 1, shape: "square", className: "aura-necro", label: "BONE", title: "Necromancer 3x3: Raise Dead probeert hier Skeletons te summonen." },
   { cardId: "alchemist", radius: 1, className: "aura-alchemy", label: "POT", title: "Alchemist potion range voor friendly units." },
   { cardId: "mercy", radius: 1, className: "aura-heal", label: "HEAL", title: "Mercy heal/revive support range." },
   { cardId: "pam", radius: 1, className: "aura-heal", label: "HEAL", title: "Pam area-heal range." },
   { cardId: "orisa", radius: 1, className: "aura-barrier", label: "BAR", title: "Orisa Barrier placement range." },
   { cardId: "sigma", radius: 1, className: "aura-barrier", label: "BAR", title: "Sigma Barrier placement range." },
-  { cardId: "maarschalk", radius: 1, className: "aura-command", label: "CMD", title: "Maarschalk command range voor ranged units." }
+  { cardId: "maarschalk", radius: 1, shape: "square", className: "aura-command", label: "CMD", title: "Maarschalk 3x3: command range voor ranged units." }
 ];
 
 function decorateAura(cell, x, y, selected = null) {
@@ -624,9 +624,16 @@ function getAuraInfoForTile(x, y) {
   return state.units.flatMap((unit) => {
     if (unit.type === "base" || isPetrified(unit)) return [];
     const definition = auraDefinitions.find((item) => item.cardId === unit.cardId);
-    if (!definition || distance(unit, { x, y }) > definition.radius) return [];
+    if (!definition || !isInAuraShape(unit, { x, y }, definition)) return [];
     return [{ ...definition, sourceId: unit.unitId, owner: unit.owner }];
   });
+}
+
+function isInAuraShape(source, target, definition) {
+  if (definition.shape === "square") {
+    return Math.abs(source.x - target.x) <= definition.radius && Math.abs(source.y - target.y) <= definition.radius;
+  }
+  return distance(source, target) <= definition.radius;
 }
 
 function decorateCell(cell, x, y, validMoves, validAttacks, validBaseAttacks, validAbilityTargets, placingCard, validSpellTargets, validGustavTiles = []) {
@@ -702,7 +709,7 @@ function renderAuraBadges(unit) {
   if (unit.theeBurnStacks?.length) badges.push(`<span class="status-badge aura-badge burn">TEA</span>`);
   if (unit.statuses.hitted) badges.push(`<span class="status-badge aura-badge hit">HIT</span>`);
   const hasRaidBanner = unit.tags?.some((tag) => tag === "summon" || tag === "token")
-    && state.units.some((source) => source.owner === unit.owner && source.cardId === "pillager-captain" && distance(source, unit) <= 1 && !isPetrified(source));
+    && state.units.some((source) => source.owner === unit.owner && source.cardId === "pillager-captain" && Math.abs(source.x - unit.x) <= 1 && Math.abs(source.y - unit.y) <= 1 && !isPetrified(source));
   if (hasRaidBanner) badges.push(`<span class="status-badge aura-badge raid">+ATK</span>`);
   return badges;
 }
