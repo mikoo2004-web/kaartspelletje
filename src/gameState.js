@@ -1,4 +1,4 @@
-import { baseCards, cards, getImageForCard } from "./cards.js";
+import { baseCards, cards, getImageForCard } from "./cards.js?v=verkenner-image-1";
 
 export const BOARD_ROWS = 9;
 export const BOARD_COLS = 9;
@@ -147,7 +147,7 @@ export function createUnit(card, owner, x, y) {
 }
 
 function makePlayer(id) {
-  const tokenIds = ["orisa-barrier", "sigma-barrier", "turk", "marokkaan", "slime", "pillager", "gta-cop", "skeleton", "mier-token"];
+  const tokenIds = ["orisa-barrier", "sigma-barrier", "turk", "marokkaan", "slime", "pillager", "gta-cop", "skeleton", "mier-token", "nyan-kat-token"];
   const deck = shuffle(cards.filter((card) => !tokenIds.includes(card.id)).map(cloneCard));
   return {
     id,
@@ -241,6 +241,10 @@ export function isUnitAlive(unit) {
 
 export function isAntToken(unit) {
   return unit?.cardId === "mier-token";
+}
+
+export function isStackingToken(unit) {
+  return isAntToken(unit) || unit?.cardId === "nyan-kat-token";
 }
 
 export function getAntDisplayName(unit) {
