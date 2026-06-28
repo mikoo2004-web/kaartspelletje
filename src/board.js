@@ -154,6 +154,55 @@ const keywordDefinitions = {
   "mier-en": { label: "Mier(en)", category: "Summon / Death", description: "Mier(en) is een swarm-token. Eigen Mier(en)-tokens op hetzelfde vakje worden samengevoegd. Ze mogen op bezette vakjes staan en enemies op hetzelfde vakje aanvallen." }
 };
 
+const trueAuraCardIds = new Set(["politicus", "pillager-captain"]);
+
+const publicKeywordLabels = new Set([
+  "melee",
+  "ranged",
+  "flying",
+  "building",
+  "structure",
+  "shield",
+  "shielded",
+  "shield-only",
+  "true-damage",
+  "stack-damage",
+  "area-damage",
+  "multi-hit",
+  "pierce",
+  "stealth",
+  "stun",
+  "cooldown",
+  "healer",
+  "summon",
+  "token",
+  "bunker",
+  "true-bunker",
+  "transport",
+  "deploy-anywhere",
+  "anti-air",
+  "anti-building",
+  "line-attack",
+  "line-movement",
+  "damage-over-time",
+  "counter",
+  "reflect",
+  "targeted-fire",
+  "petrify",
+  "resurrect",
+  "teleport",
+  "no-claim",
+  "territory",
+  "deathrattle",
+  "sacrifice",
+  "suicide",
+  "self-damage",
+  "chain-kill",
+  "aura",
+  "spell",
+  "base"
+]);
+
 const hiddenKeywordLabels = new Set(["unit", "passive"]);
 
 function renderIcon(iconKey) {
@@ -275,10 +324,7 @@ function renderAttacks(cardOrUnit) {
 function getRuleSections(cardOrUnit) {
   const text = cardOrUnit.abilityText || "";
   if (!text) return [];
-  const isSpell = cardOrUnit.type === "spell";
-  if (isSpell) return [{ label: "Effect", body: text }];
-  const markers = ["Passive:", "Ability:", "Powerpunch:", "Concussion Mine:", "Hook:", "BunkerShield:"];
-  const pattern = new RegExp(`(?=${markers.map((marker) => marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "g");
+  const pattern = /(?=(?:Passive|Attack|Ability|Upkeep|Death|Note|Effect|Target|Restriction|Aftereffect)(?:\s+-\s+[^:]+)?:)/g;
   const parts = text.split(pattern).map((part) => part.trim()).filter(Boolean);
   if (!parts.length) return [{ label: "Info", body: text }];
   return parts.map((part) => {
@@ -311,46 +357,38 @@ function renderAbility(cardOrUnit, fullText = false) {
 function getCardKeywords(card) {
   const keywords = new Set();
   if (card.type && card.type !== "unit") keywords.add(card.type);
+  if (card.type === "building") keywords.add("building");
+  if (card.type === "base") keywords.add("base");
   (card.tags || []).forEach((tag) => {
-    if (!hiddenKeywordLabels.has(tag)) keywords.add(tag);
+    if (publicKeywordLabels.has(tag)) keywords.add(tag);
   });
-  if (card.role && keywordDefinitions[card.role]) keywords.add(card.role);
+  if (trueAuraCardIds.has(card.id)) keywords.add("aura");
   (card.attacks || []).forEach((attack) => {
-    if (attack.name !== "ranged-heal" && attack.name !== "anti-building") keywords.add(attack.name);
     if (attack.range > 1 || attack.name === "ranged") keywords.add("ranged");
     if (attack.name === "melee") keywords.add("melee");
     if (attack.hits && attack.hits > 1) keywords.add("multi-hit");
     if (attack.cooldown) keywords.add("cooldown");
     if (attack.name === "anti-building") keywords.add("anti-building");
   });
-  if ((card.maxHp || 0) >= 700 || (card.shield || 0) >= 150 || card.tags?.includes("tank")) keywords.add("tank");
-  if ((card.maxHp || 0) <= 200 && card.type === "unit") keywords.add("fragile");
   if ((card.shield || 0) > 0) keywords.add("shielded");
-  if ((card.speed || 0) >= 2) keywords.add("fast");
-  const text = `${card.name} ${card.abilityText || ""} ${card.role || ""} ${(card.tags || []).join(" ")}`.toLowerCase();
+  const text = `${card.name} ${card.abilityText || ""}`.toLowerCase();
   const textMatches = [
-    ["heal", "healer"],
+    ["true damage", "true-damage"],
+    ["cooldown", "cooldown"],
     ["revive", "resurrect"],
     ["stun", "stun"],
-    ["barrier", "barrier"],
-    ["bunker", "bunker"],
-    ["summon", "summon"],
-    ["token", "token"],
-    ["flying", "flying"],
-    ["area damage", "area-damage"],
     ["stack damage", "stack-damage"],
-    ["hook", "hook"],
-    ["building", "building"],
-    ["territory", "territory"],
-    ["phase", "phase"],
+    ["area damage", "area-damage"],
+    ["pierce", "pierce"],
+    ["stealth", "stealth"],
     ["reflect", "reflect"],
-    ["cooldown", "cooldown"]
+    ["counter", "counter"]
   ];
   textMatches.forEach(([needle, keyword]) => {
     if (text.includes(needle)) keywords.add(keyword);
   });
   return [...keywords]
-    .filter((keyword) => keyword && !hiddenKeywordLabels.has(keyword))
+    .filter((keyword) => keyword && publicKeywordLabels.has(keyword) && !hiddenKeywordLabels.has(keyword))
     .sort(compareKeywords);
 }
 
@@ -383,7 +421,7 @@ function getAllKeywordCards() {
 }
 
 function renderKeywordChips(card) {
-  return `<div class="keyword-chips">${getCardKeywords(card).slice(0, 9).map((keyword) => `<span>${getKeywordDefinition(keyword).label}</span>`).join("")}</div>`;
+  return `<div class="keyword-chips">${getCardKeywords(card).slice(0, 6).map((keyword) => `<span>${getKeywordDefinition(keyword).label}</span>`).join("")}</div>`;
 }
 
 function renderCardStats(card, options = {}) {
@@ -593,17 +631,7 @@ function decorateTerritory(cell, x, y) {
 
 const auraDefinitions = [
   { cardId: "politicus", radius: 1, shape: "square", className: "aura-politics", label: "+SH", title: "Politieke Steun 3x3: friendly units krijgen shield." },
-  { cardId: "koffieautomaat", radius: 1, className: "aura-coffee", label: "+SPD", title: "Koffieboost range: friendly unit kan speed/damage boost krijgen." },
-  { cardId: "manager", radius: 3, className: "aura-manager", label: "+DMG", title: "Motiverende Speech range: friendly unit kan permanent damage/speed krijgen." },
-  { cardId: "mierenkoningin", radius: 1, shape: "square", className: "aura-summon", label: "SUM", title: "Mierenkoningin 3x3: spawnt mieren rondom haar." },
-  { cardId: "pillager-captain", radius: 1, shape: "square", className: "aura-raid", label: "+ATK", title: "Raid Banner 3x3: summons/tokens krijgen attack bonus." },
-  { cardId: "necromancer", radius: 1, shape: "square", className: "aura-necro", label: "BONE", title: "Necromancer 3x3: Raise Dead probeert hier Skeletons te summonen." },
-  { cardId: "alchemist", radius: 1, className: "aura-alchemy", label: "POT", title: "Alchemist potion range voor friendly units." },
-  { cardId: "mercy", radius: 1, className: "aura-heal", label: "HEAL", title: "Mercy heal/revive support range." },
-  { cardId: "pam", radius: 1, className: "aura-heal", label: "HEAL", title: "Pam area-heal range." },
-  { cardId: "orisa", radius: 1, className: "aura-barrier", label: "BAR", title: "Orisa Barrier placement range." },
-  { cardId: "sigma", radius: 1, className: "aura-barrier", label: "BAR", title: "Sigma Barrier placement range." },
-  { cardId: "maarschalk", radius: 1, shape: "square", className: "aura-command", label: "CMD", title: "Maarschalk 3x3: command range voor ranged units." }
+  { cardId: "pillager-captain", radius: 1, shape: "square", className: "aura-raid", label: "+ATK", title: "Raid Banner 3x3: summons/tokens krijgen attack bonus." }
 ];
 
 function decorateAura(cell, x, y, selected = null) {
@@ -780,7 +808,7 @@ function renderDetails() {
   const unit = getUnit(state.selectedUnitId) || getUnit(state.inspectedUnitId);
   if (card) {
     selectionEl.textContent = `${card.name} geselecteerd. Klik op het bord.`;
-    detailsEl.innerHTML = `<strong>${card.name}</strong><br>${card.abilityText || ""}`;
+    detailsEl.innerHTML = renderSelectedCardDetails(card);
     return;
   }
   if (state.currentMode === "discarding") {
@@ -796,6 +824,24 @@ function renderDetails() {
   }
   selectionEl.textContent = "Kies een kaart of unit.";
   detailsEl.textContent = "Nog niets geselecteerd.";
+}
+
+function renderSelectedCardDetails(card) {
+  return `
+    <article class="selected-card-detail">
+      <img src="${card.image}" alt="${card.name}" onerror="this.src='assets/cards/placeholder.svg'; this.onerror=null;">
+      <div class="selected-card-detail-body">
+        <div class="selected-card-detail-head">
+          <strong>${card.name}</strong>
+          <span class="cost-badge"><span class="cost-icon"></span>${card.cost ?? 0}</span>
+        </div>
+        ${card.tags?.includes("token") ? `<p class="token-label">Token / niet in deck</p>` : ""}
+        ${card.abilityCost !== undefined ? `<p class="detail-line">Ability cost: ${card.abilityCost} energie</p>` : ""}
+        ${renderCardStats(card, { fullText: true })}
+        ${renderKeywordChips(card)}
+      </div>
+    </article>
+  `;
 }
 
 export function renderSelectedUnitPanel() {
@@ -834,7 +880,7 @@ export function renderSelectedUnitPanel() {
   const statuses = Object.entries(unit.statuses)
     .map(([key, value]) => `${key}: ${value}`)
     .join(", ") || "geen";
-  const tags = [unit.type, unit.role, ...(unit.tags || [])].filter(Boolean).join(", ");
+  const typeLabel = unit.type === "building" ? "Building" : unit.type === "base" ? "Base" : "Unit";
   const abilityOnCooldown = unit.cardId === "roadhog" && (unit.hookCooldownRemaining || 0) > 0;
 
   selectedUnitPanelEl.innerHTML = `
@@ -846,7 +892,8 @@ export function renderSelectedUnitPanel() {
           <span>Eigenaar: speler ${unit.owner}</span>
         </div>
         <div class="unit-info-grid">
-          <span>Type: ${tags}</span>
+          <span>Type: ${typeLabel}</span>
+          <div class="wide-stat">${renderKeywordChips(unit)}</div>
           ${hasVisibleHp(unit) ? `<span>HP: ${unit.currentHp} / ${unit.maxHp}</span>` : ""}
           ${isPetrified(unit) ? `<span>Status: Standbeeld</span><span>Damage: geen</span><span>Speed: geen</span>` : ""}
           ${isAntToken(unit) ? `<span>antCount: ${unit.antCount || 1}</span><span>Swarm damage: ${(unit.antCount || 1) * 10}</span>` : ""}
